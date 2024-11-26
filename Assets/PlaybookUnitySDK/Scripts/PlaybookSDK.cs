@@ -1,150 +1,159 @@
-using System;
+using System.Collections;
 using System.IO;
-using System.IO.Compression;
-using UnityEditor;
 using UnityEngine;
-using UnityEngine.Assertions;
 using UnityEngine.Rendering;
-using CompressionLevel = System.IO.Compression.CompressionLevel;
 
 namespace PlaybookUnitySDK.Scripts
 {
     [RequireComponent(typeof(PlaybookMaskGroups))]
     public class PlaybookSDK : MonoBehaviour
     {
-        // Capture Image Sequence Properties
-        public bool IsCapturingImageSequence { get; private set; }
-        
+        private const string DepthShader = "Shader Graphs/DepthPassShaderGraph";
+        private const string OutlineShader = "Shader Graphs/OutlinePassShaderGraph";
+
+        private const int NumberOfPasses = 2;
+        private const int RenderEveryNFrames = 3;
+
         private int _framesPassed;
         private int _sequenceCount;
-    
-        private const int RenderEveryNFrames = 3;
-        
-        // Capture Image Properties
-        private bool _renderImage;
+
+        private string _rendersFolderPath;
+
+        private Camera _renderCamera;
+        private RenderTexture[] _renderTextures;
+        private RenderTexture _renderTexture;
+        private Material[] _shaderMaterials;
+
+        private Coroutine _imageSequenceCoroutine;
+
+        public bool IsCapturingImageSequence { get; private set; }
 
         #region Lifecycle Events
-        private void OnEnable()
+
+        private void Awake()
         {
-            RenderPipelineManager.endCameraRendering += CaptureImage;
-            RenderPipelineManager.endCameraRendering += CaptureImageSequence;
+            InitializeProperties();
         }
 
-        private void OnDisable()
-        {
-            RenderPipelineManager.endCameraRendering -= CaptureImage;
-        }
         #endregion
 
         #region Private Methods
-        private void CaptureImage(ScriptableRenderContext context, Camera cam)
+
+        /// <summary>
+        /// Initialize the required properties for capturing images and image sequences.
+        /// </summary>
+        private void InitializeProperties()
         {
-            if (!_renderImage) return;
+            _renderCamera = GetComponent<Camera>();
 
-            _renderImage = false;
+            Material depthMaterial = new(Shader.Find(DepthShader));
+            Material outlineMaterial = new(Shader.Find(OutlineShader));
 
-            string rendersFolderPath = GetRendersFolderPath();
-            SavePNGToRenders(GetRenderImageFilePath(rendersFolderPath));
+            _shaderMaterials = new[] { depthMaterial, outlineMaterial };
+
+            _renderTexture = new RenderTexture(Screen.width, Screen.height, 24);
+            _renderTextures = new RenderTexture[NumberOfPasses];
+            for (int i = 0; i < NumberOfPasses; i++)
+                _renderTextures[i] = new RenderTexture(Screen.width, Screen.height, 24);
+
+            _rendersFolderPath = PlaybookFileUtilities.GetRendersFolderPath(this);
         }
-        
-        private void CaptureImageSequence(ScriptableRenderContext context, Camera cam)
-        {
-            if (!IsCapturingImageSequence) return;
 
+        /// <summary>
+        /// Capture all image passes every n frames.
+        /// </summary>
+        private IEnumerator CaptureImageSequence_CO()
+        {
             if (_framesPassed < RenderEveryNFrames)
             {
                 _framesPassed++;
-                return;
+                yield return null;
             }
 
-            string rendersFolderPath = GetRendersFolderPath();
-            SavePNGToRenders(GetRenderImageFilePath(rendersFolderPath, _sequenceCount));
-            
+            CaptureRenderPasses();
+
             _framesPassed = 0;
             _sequenceCount++;
         }
 
-        private void SavePNGToRenders(string filePath)
+        /// <summary>
+        /// Capture all render passes.
+        /// </summary>
+        private void CaptureRenderPasses()
         {
-            int width = Screen.width;
-            int height = Screen.height;
-
-            Texture2D renderImageTexture = new(width, height, TextureFormat.ARGB32, false);
-            Rect renderImageRect = new(0, 0, width, height);
-            renderImageTexture.ReadPixels(renderImageRect, 0, 0);
-            renderImageTexture.Apply();
-
-            byte[] byteArray = renderImageTexture.EncodeToPNG();
-            File.WriteAllBytes(filePath, byteArray);
-        }
-        
-        private string GetRenderImageFilePath(string rendersFolderPath, int fileNum = -1)
-        {
-            if (!Directory.Exists(rendersFolderPath))
+            for (int i = 0; i < NumberOfPasses; i++)
             {
-                Directory.CreateDirectory(rendersFolderPath);
+                _renderCamera.targetTexture = _renderTextures[i];
+
+                // Clear the previous render
+                GL.Clear(true, true, Color.black);
+
+                CommandBuffer command = new() { name = "CaptureShaderEffect" };
+                command.Blit(null, _renderTextures[i], _shaderMaterials[i]);
+
+                // Apply the material during rendering
+                _renderCamera.AddCommandBuffer(CameraEvent.AfterEverything, command);
+                _renderCamera.Render();
+
+                SaveImageCapture(_renderTextures[i], _shaderMaterials[i].name);
+
+                _renderCamera.RemoveCommandBuffer(CameraEvent.AfterEverything, command);
             }
 
-            string fileName = fileNum == -1 ? "Image.png" : $"ImageSequence{fileNum}.png";
-            return Path.Combine(rendersFolderPath, fileName);
+            _renderCamera.targetTexture = null;
         }
 
-        private string GetRendersFolderPath()
+        /// <summary>
+        /// Save the image capture to the renders folder path after appropriately
+        /// naming it.
+        /// </summary>
+        private void SaveImageCapture(RenderTexture renderTexture, string shaderName)
         {
-            MonoScript script = MonoScript.FromMonoBehaviour(this);
-            string scriptPath = AssetDatabase.GetAssetPath(script);
+            RenderTexture.active = renderTexture;
+            Texture2D screenshot =
+                new(renderTexture.width, renderTexture.height, TextureFormat.RGB24, false);
+            screenshot.ReadPixels(new Rect(0, 0, renderTexture.width, renderTexture.height), 0, 0);
+            screenshot.Apply();
 
-            string scriptDirectory = Path.GetDirectoryName(scriptPath);
-        
-            Assert.IsNotNull(scriptDirectory);
+            byte[] bytes = screenshot.EncodeToPNG();
+            shaderName = shaderName.Replace("Shader Graphs/", "");
+            string imageName = IsCapturingImageSequence
+                ? $"{shaderName}_screenshot{_sequenceCount}.png"
+                : $"{shaderName}_screenshot.png";
+            string filePath = Path.Combine(_rendersFolderPath, imageName);
+            File.WriteAllBytes(filePath, bytes);
 
-            return Path.Combine(scriptDirectory, "../Renders");
+            RenderTexture.active = null;
+            Destroy(screenshot);
         }
 
-        private void ZipRendersFolder(string rendersFolderPath)
+        private void ResetImageSequenceProperties()
         {
-            string rendersFolderZipPath = $"{rendersFolderPath}.zip";
-
-            if (Directory.Exists(rendersFolderPath))
-            {
-                ZipFile.CreateFromDirectory
-                (
-                    rendersFolderPath, 
-                    rendersFolderZipPath, 
-                    CompressionLevel.Fastest, 
-                    true
-                );
-            }
-            else
-            {
-                Debug.LogError($"Folder {rendersFolderPath} does not exist.");
-            }
+            _framesPassed = RenderEveryNFrames;
+            _sequenceCount = 0;
         }
 
-        private void DeleteFolderContents(string folderPath)
-        {
-            if (Directory.Exists(folderPath))
-            {
-                Directory.Delete(folderPath, true);
-            }
-
-            Directory.CreateDirectory(folderPath);
-        }
         #endregion
 
         #region Public Methods
-        public void CaptureImage()
+
+        public void InvokeCaptureImage()
         {
-            _renderImage = true;
+            PlaybookFileUtilities.DeleteFolderContents(_rendersFolderPath);
+
+            CaptureRenderPasses();
+            // TODO: Send images to server
         }
 
         public void StartCaptureImageSequence()
         {
+            PlaybookFileUtilities.DeleteFolderContents(_rendersFolderPath);
+
             IsCapturingImageSequence = true;
 
-            // Reset properties for image sequence capture
-            _framesPassed = RenderEveryNFrames;
-            _sequenceCount = 0;
+            ResetImageSequenceProperties();
+
+            _imageSequenceCoroutine = StartCoroutine(CaptureImageSequence_CO());
         }
 
         public void StopCaptureImageSequence()
@@ -152,13 +161,18 @@ namespace PlaybookUnitySDK.Scripts
             IsCapturingImageSequence = false;
 
             // Create a zip of the image sequences
-            string rendersFolderPath = GetRendersFolderPath();
-            ZipRendersFolder(rendersFolderPath);
-            DeleteFolderContents(rendersFolderPath);
-            
-            // TODO: Send zip to server
-            DeleteFolderContents($"{rendersFolderPath}.zip");
+            PlaybookFileUtilities.ZipFolderContents(_rendersFolderPath);
+            PlaybookFileUtilities.DeleteFolderContents(_rendersFolderPath);
+
+            // TODO: Send zip to server then delete
+            // DeleteFolderContents($"{rendersFolderPath}.zip");
+
+            if (_imageSequenceCoroutine != null)
+            {
+                StopCoroutine(_imageSequenceCoroutine);
+            }
         }
+
         #endregion
     }
 }
