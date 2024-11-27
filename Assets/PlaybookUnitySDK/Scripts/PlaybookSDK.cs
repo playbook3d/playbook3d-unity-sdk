@@ -21,7 +21,7 @@ namespace PlaybookUnitySDK.Scripts
 
         private Camera _renderCamera;
         private RenderTexture[] _renderTextures;
-        private RenderTexture _renderTexture;
+        private RenderTexture _beautyPassRenderTexture;
         private Material[] _shaderMaterials;
 
         private Coroutine _imageSequenceCoroutine;
@@ -51,10 +51,12 @@ namespace PlaybookUnitySDK.Scripts
 
             _shaderMaterials = new[] { depthMaterial, outlineMaterial };
 
-            _renderTexture = new RenderTexture(Screen.width, Screen.height, 24);
+            _beautyPassRenderTexture = new RenderTexture(Screen.width, Screen.height, 24);
             _renderTextures = new RenderTexture[NumberOfPasses];
             for (int i = 0; i < NumberOfPasses; i++)
+            {
                 _renderTextures[i] = new RenderTexture(Screen.width, Screen.height, 24);
+            }
 
             _rendersFolderPath = PlaybookFileUtilities.GetRendersFolderPath(this);
         }
@@ -81,6 +83,8 @@ namespace PlaybookUnitySDK.Scripts
         /// </summary>
         private void CaptureRenderPasses()
         {
+            CaptureBeautyPass();
+
             for (int i = 0; i < NumberOfPasses; i++)
             {
                 _renderCamera.targetTexture = _renderTextures[i];
@@ -103,6 +107,16 @@ namespace PlaybookUnitySDK.Scripts
             _renderCamera.targetTexture = null;
         }
 
+        private void CaptureBeautyPass()
+        {
+            GL.Clear(true, true, Color.black);
+
+            _renderCamera.targetTexture = _beautyPassRenderTexture;
+            _renderCamera.Render();
+
+            SaveImageCapture(_beautyPassRenderTexture, "BeautyPass");
+        }
+
         /// <summary>
         /// Save the image capture to the renders folder path after appropriately
         /// naming it.
@@ -116,10 +130,10 @@ namespace PlaybookUnitySDK.Scripts
             screenshot.Apply();
 
             byte[] bytes = screenshot.EncodeToPNG();
-            shaderName = shaderName.Replace("Shader Graphs/", "");
+            shaderName = shaderName.Replace("Shader Graphs/", "").Replace("ShaderGraph", "");
             string imageName = IsCapturingImageSequence
-                ? $"{shaderName}_screenshot{_sequenceCount}.png"
-                : $"{shaderName}_screenshot.png";
+                ? $"{shaderName}_{_sequenceCount}.png"
+                : $"{shaderName}.png";
             string filePath = Path.Combine(_rendersFolderPath, imageName);
             File.WriteAllBytes(filePath, bytes);
 

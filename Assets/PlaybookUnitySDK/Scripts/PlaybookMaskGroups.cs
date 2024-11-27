@@ -24,7 +24,7 @@ namespace PlaybookUnitySDK.Scripts
 
         private void Start()
         {
-            SetObjectMaskGroups();
+            // SetObjectMaskGroups();
         }
 
         public void SetObjectMaskGroups()
