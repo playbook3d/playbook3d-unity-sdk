@@ -20,11 +20,11 @@ namespace PlaybookUnitySDK.Scripts
         [SerializeField]
         private PlaybookMaskGroup[] maskGroups = new PlaybookMaskGroup[7];
 
-        private static readonly int MaskIDProperty = Shader.PropertyToID("_MaskID");
+        private static readonly int MaskIDProperty = Shader.PropertyToID("_ObjectID");
 
         private void Start()
         {
-            // SetObjectMaskGroups();
+            SetObjectMaskGroups();
         }
 
         public void SetObjectMaskGroups()
@@ -48,9 +48,9 @@ namespace PlaybookUnitySDK.Scripts
                 MaterialPropertyBlock block = new();
                 maskObjectRenderer.GetPropertyBlock(block);
                 Debug.Log($"<color=white>{maskGroup.MaskID}</color>");
-                block.SetInteger(MaskIDProperty, maskGroup.MaskID);
+                block.SetFloat(MaskIDProperty, maskGroup.MaskID);
                 maskObjectRenderer.SetPropertyBlock(block);
-                Debug.Log($"<color=red>{block.GetInteger(MaskIDProperty)}</color>");
+                Debug.Log($"<color=red>{block.GetFloat(MaskIDProperty)}</color>");
             }
         }
     }

@@ -1,19 +1,18 @@
+using PlaybookUnitySDK.Scripts;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Assertions;
 
-namespace PlaybookUnitySDK.Scripts
+namespace PlaybookUnitySDK.Editor
 {
     [CustomEditor(typeof(PlaybookSDK))]
-    public class PlaybookSDKEditor : Editor
+    public class PlaybookSDKEditor : UnityEditor.Editor
     {
         public override void OnInspectorGUI()
         {
             serializedObject.Update();
 
-            PlaybookSDK playbookSDK = target as PlaybookSDK;
-
-            Assert.IsNotNull(playbookSDK);
+            PlaybookSDK playbookSDK = (PlaybookSDK)target;
 
             // Disable buttons if not in Play mode
             bool isInPlayMode = EditorApplication.isPlaying;

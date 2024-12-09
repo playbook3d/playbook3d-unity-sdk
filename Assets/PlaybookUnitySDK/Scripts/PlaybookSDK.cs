@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -8,6 +9,14 @@ namespace PlaybookUnitySDK.Scripts
     [RequireComponent(typeof(PlaybookMaskGroups))]
     public class PlaybookSDK : MonoBehaviour
     {
+        public enum RenderPass
+        {
+            Beauty,
+            Mask,
+            Depth,
+            Outline,
+        }
+
         private const string DepthShader = "Shader Graphs/DepthPassShaderGraph";
         private const string OutlineShader = "Shader Graphs/OutlinePassShaderGraph";
 
@@ -22,7 +31,7 @@ namespace PlaybookUnitySDK.Scripts
         private Camera _renderCamera;
         private RenderTexture[] _renderTextures;
         private RenderTexture _beautyPassRenderTexture;
-        private Material[] _shaderMaterials;
+        private RenderPassMaterial[] _renderPassMaterials;
 
         private Coroutine _imageSequenceCoroutine;
 
@@ -49,7 +58,11 @@ namespace PlaybookUnitySDK.Scripts
             Material depthMaterial = new(Shader.Find(DepthShader));
             Material outlineMaterial = new(Shader.Find(OutlineShader));
 
-            _shaderMaterials = new[] { depthMaterial, outlineMaterial };
+            _renderPassMaterials = new[]
+            {
+                new RenderPassMaterial { pass = RenderPass.Depth, material = depthMaterial },
+                new RenderPassMaterial { pass = RenderPass.Outline, material = outlineMaterial },
+            };
 
             _beautyPassRenderTexture = new RenderTexture(Screen.width, Screen.height, 24);
             _renderTextures = new RenderTexture[NumberOfPasses];
@@ -93,13 +106,13 @@ namespace PlaybookUnitySDK.Scripts
                 GL.Clear(true, true, Color.black);
 
                 CommandBuffer command = new() { name = "CaptureShaderEffect" };
-                command.Blit(null, _renderTextures[i], _shaderMaterials[i]);
+                command.Blit(null, _renderTextures[i], _renderPassMaterials[i].material);
 
                 // Apply the material during rendering
                 _renderCamera.AddCommandBuffer(CameraEvent.AfterEverything, command);
                 _renderCamera.Render();
 
-                SaveImageCapture(_renderTextures[i], _shaderMaterials[i].name);
+                SaveImageCapture(_renderTextures[i], _renderPassMaterials[i].pass);
 
                 _renderCamera.RemoveCommandBuffer(CameraEvent.AfterEverything, command);
             }
@@ -114,14 +127,14 @@ namespace PlaybookUnitySDK.Scripts
             _renderCamera.targetTexture = _beautyPassRenderTexture;
             _renderCamera.Render();
 
-            SaveImageCapture(_beautyPassRenderTexture, "BeautyPass");
+            SaveImageCapture(_beautyPassRenderTexture, RenderPass.Beauty);
         }
 
         /// <summary>
         /// Save the image capture to the renders folder path after appropriately
         /// naming it.
         /// </summary>
-        private void SaveImageCapture(RenderTexture renderTexture, string shaderName)
+        private async void SaveImageCapture(RenderTexture renderTexture, RenderPass pass)
         {
             RenderTexture.active = renderTexture;
             Texture2D screenshot =
@@ -130,12 +143,13 @@ namespace PlaybookUnitySDK.Scripts
             screenshot.Apply();
 
             byte[] bytes = screenshot.EncodeToPNG();
-            shaderName = shaderName.Replace("Shader Graphs/", "").Replace("ShaderGraph", "");
             string imageName = IsCapturingImageSequence
-                ? $"{shaderName}_{_sequenceCount}.png"
-                : $"{shaderName}.png";
+                ? $"{pass.ToString()}Pass_{_sequenceCount}.png"
+                : $"{pass.ToString()}Pass.png";
             string filePath = Path.Combine(_rendersFolderPath, imageName);
-            File.WriteAllBytes(filePath, bytes);
+            await File.WriteAllBytesAsync(filePath, bytes);
+
+            await PlaybookAPIVerifier.UploadImageFile(pass, filePath);
 
             RenderTexture.active = null;
             Destroy(screenshot);
@@ -188,5 +202,11 @@ namespace PlaybookUnitySDK.Scripts
         }
 
         #endregion
+
+        private struct RenderPassMaterial
+        {
+            public RenderPass pass;
+            public Material material;
+        }
     }
 }

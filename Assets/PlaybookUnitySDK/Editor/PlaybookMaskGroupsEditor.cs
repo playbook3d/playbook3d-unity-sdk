@@ -1,10 +1,11 @@
+using PlaybookUnitySDK.Scripts;
 using UnityEditor;
 using UnityEngine;
 
-namespace PlaybookUnitySDK.Scripts
+namespace PlaybookUnitySDK.Editor
 {
     [CustomEditor(typeof(PlaybookMaskGroups))]
-    public class PlaybookMaskGroupsEditor : Editor
+    public class PlaybookMaskGroupsEditor : UnityEditor.Editor
     {
         private const int MaxMaskGroup = 7;
 
