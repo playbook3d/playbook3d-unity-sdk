@@ -35,6 +35,12 @@ namespace PlaybookUnitySDK.Scripts
             if (Directory.Exists(folderPath))
             {
                 string rendersFolderZipPath = $"{folderPath}.zip";
+
+                if (File.Exists(rendersFolderZipPath))
+                {
+                    File.Delete(rendersFolderZipPath);
+                }
+
                 ZipFile.CreateFromDirectory(
                     folderPath,
                     rendersFolderZipPath,

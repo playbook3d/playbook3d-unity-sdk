@@ -17,6 +17,7 @@ namespace PlaybookUnitySDK.Scripts
         private static Team[] _teams;
         private static Workflow[] _workflows;
         private static UploadURLs _uploadUrls;
+        private static UploadURLs _uploadZipUrls;
 
         public static int CurrTeamIndex { get; set; }
         public static int CurrWorkflowIndex { get; set; }
@@ -86,6 +87,8 @@ namespace PlaybookUnitySDK.Scripts
                 HttpResponseMessage response = await client.GetAsync(url);
                 response.EnsureSuccessStatusCode();
                 string responseBody = await response.Content.ReadAsStringAsync();
+
+                Debug.Log($"<color=red>{responseBody}</color>");
 
                 T data = JsonUtility.FromJson<T>(responseBody);
                 return data;
@@ -211,6 +214,8 @@ namespace PlaybookUnitySDK.Scripts
             }
         }
 
+        #region Network Helpers
+
         [Serializable]
         private struct AccessToken
         {
@@ -264,5 +269,7 @@ namespace PlaybookUnitySDK.Scripts
             Wrapper<T> wrapper = JsonUtility.FromJson<Wrapper<T>>(json);
             return wrapper.items;
         }
+
+        #endregion
     }
 }

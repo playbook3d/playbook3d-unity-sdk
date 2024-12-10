@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -6,7 +7,7 @@ using UnityEngine.Rendering;
 
 namespace PlaybookUnitySDK.Scripts
 {
-    [RequireComponent(typeof(PlaybookMaskGroups))]
+    [RequireComponent(typeof(PlaybookMaskPass))]
     public class PlaybookSDK : MonoBehaviour
     {
         public enum RenderPass
@@ -20,20 +21,19 @@ namespace PlaybookUnitySDK.Scripts
         private const string DepthShader = "Shader Graphs/DepthPassShaderGraph";
         private const string OutlineShader = "Shader Graphs/OutlinePassShaderGraph";
 
-        private const int NumberOfPasses = 2;
+        // Image sequence properties
         private const int RenderEveryNFrames = 3;
-
         private int _framesPassed;
         private int _sequenceCount;
+        private Coroutine _imageSequenceCoroutine;
 
         private string _rendersFolderPath;
 
         private Camera _renderCamera;
-        private RenderTexture[] _renderTextures;
+        private PlaybookMaskPass _maskPass;
         private RenderTexture _beautyPassRenderTexture;
-        private RenderPassMaterial[] _renderPassMaterials;
-
-        private Coroutine _imageSequenceCoroutine;
+        private RenderTexture _maskPassRenderTexture;
+        private RenderPassProperty[] _renderPassProperties;
 
         public bool IsCapturingImageSequence { get; private set; }
 
@@ -42,6 +42,29 @@ namespace PlaybookUnitySDK.Scripts
         private void Awake()
         {
             InitializeProperties();
+        }
+
+        private void Update()
+        {
+            // TODO: Convert to coroutine
+            if (IsCapturingImageSequence)
+            {
+                if (_framesPassed < RenderEveryNFrames)
+                {
+                    _framesPassed++;
+                    return;
+                }
+
+                CaptureRenderPasses();
+
+                _framesPassed = 0;
+                _sequenceCount++;
+            }
+        }
+
+        private void OnDestroy()
+        {
+            PlaybookFileUtilities.DeleteFolderContents(_rendersFolderPath);
         }
 
         #endregion
@@ -54,22 +77,29 @@ namespace PlaybookUnitySDK.Scripts
         private void InitializeProperties()
         {
             _renderCamera = GetComponent<Camera>();
+            _maskPass = GetComponent<PlaybookMaskPass>();
 
             Material depthMaterial = new(Shader.Find(DepthShader));
             Material outlineMaterial = new(Shader.Find(OutlineShader));
 
-            _renderPassMaterials = new[]
+            _renderPassProperties = new[]
             {
-                new RenderPassMaterial { pass = RenderPass.Depth, material = depthMaterial },
-                new RenderPassMaterial { pass = RenderPass.Outline, material = outlineMaterial },
+                new RenderPassProperty
+                {
+                    pass = RenderPass.Depth,
+                    texture = new RenderTexture(Screen.width, Screen.height, 32),
+                    material = depthMaterial,
+                },
+                new RenderPassProperty
+                {
+                    pass = RenderPass.Outline,
+                    texture = new RenderTexture(Screen.width, Screen.height, 32),
+                    material = outlineMaterial,
+                },
             };
 
-            _beautyPassRenderTexture = new RenderTexture(Screen.width, Screen.height, 24);
-            _renderTextures = new RenderTexture[NumberOfPasses];
-            for (int i = 0; i < NumberOfPasses; i++)
-            {
-                _renderTextures[i] = new RenderTexture(Screen.width, Screen.height, 24);
-            }
+            _beautyPassRenderTexture = new RenderTexture(Screen.width, Screen.height, 32);
+            _maskPassRenderTexture = new RenderTexture(Screen.width, Screen.height, 32);
 
             _rendersFolderPath = PlaybookFileUtilities.GetRendersFolderPath(this);
         }
@@ -79,16 +109,19 @@ namespace PlaybookUnitySDK.Scripts
         /// </summary>
         private IEnumerator CaptureImageSequence_CO()
         {
-            if (_framesPassed < RenderEveryNFrames)
+            while (true)
             {
-                _framesPassed++;
-                yield return null;
+                if (_framesPassed < RenderEveryNFrames)
+                {
+                    _framesPassed++;
+                    yield return null;
+                }
+
+                CaptureRenderPasses();
+
+                _framesPassed = 0;
+                _sequenceCount++;
             }
-
-            CaptureRenderPasses();
-
-            _framesPassed = 0;
-            _sequenceCount++;
         }
 
         /// <summary>
@@ -97,33 +130,19 @@ namespace PlaybookUnitySDK.Scripts
         private void CaptureRenderPasses()
         {
             CaptureBeautyPass();
+            CaptureMaskPass();
 
-            for (int i = 0; i < NumberOfPasses; i++)
+            foreach (RenderPassProperty renderPassProperty in _renderPassProperties)
             {
-                _renderCamera.targetTexture = _renderTextures[i];
-
-                // Clear the previous render
-                GL.Clear(true, true, Color.black);
-
-                CommandBuffer command = new() { name = "CaptureShaderEffect" };
-                command.Blit(null, _renderTextures[i], _renderPassMaterials[i].material);
-
-                // Apply the material during rendering
-                _renderCamera.AddCommandBuffer(CameraEvent.AfterEverything, command);
-                _renderCamera.Render();
-
-                SaveImageCapture(_renderTextures[i], _renderPassMaterials[i].pass);
-
-                _renderCamera.RemoveCommandBuffer(CameraEvent.AfterEverything, command);
+                CaptureFullscreenPass(renderPassProperty);
             }
-
-            _renderCamera.targetTexture = null;
         }
 
+        /// <summary>
+        /// Capture the beauty pass. This is the unaltered render.
+        /// </summary>
         private void CaptureBeautyPass()
         {
-            GL.Clear(true, true, Color.black);
-
             _renderCamera.targetTexture = _beautyPassRenderTexture;
             _renderCamera.Render();
 
@@ -131,28 +150,90 @@ namespace PlaybookUnitySDK.Scripts
         }
 
         /// <summary>
+        /// Capture the mask pass. This renders gives objects a flat color depending on what
+        /// mask group they're in. If a mask group is not specified, objects will be at default
+        /// placed on the catch-all layer.
+        /// </summary>
+        private void CaptureMaskPass()
+        {
+            _maskPass.SaveProperties();
+            _maskPass.SetProperties();
+
+            _renderCamera.targetTexture = _maskPassRenderTexture;
+            _renderCamera.Render();
+
+            SaveImageCapture(_maskPassRenderTexture, RenderPass.Mask);
+
+            _maskPass.ResetProperties();
+        }
+
+        /// <summary>
+        /// Capture a pass that uses a fullscreen shader as a postprocessing render.
+        /// </summary>
+        private void CaptureFullscreenPass(RenderPassProperty passProperty)
+        {
+            _renderCamera.targetTexture = passProperty.texture;
+
+            // Clear the previous render
+            GL.Clear(true, true, Color.black);
+
+            CommandBuffer command = new() { name = "CaptureShaderEffect" };
+            command.Blit(null, passProperty.texture, passProperty.material);
+
+            // Apply the material during rendering
+            _renderCamera.AddCommandBuffer(CameraEvent.AfterEverything, command);
+            _renderCamera.Render();
+
+            SaveImageCapture(passProperty.texture, passProperty.pass);
+
+            _renderCamera.RemoveCommandBuffer(CameraEvent.AfterEverything, command);
+            _renderCamera.targetTexture = null;
+        }
+
+        /// <summary>
         /// Save the image capture to the renders folder path after appropriately
         /// naming it.
         /// </summary>
-        private async void SaveImageCapture(RenderTexture renderTexture, RenderPass pass)
+        private void SaveImageCapture(RenderTexture renderTexture, RenderPass pass)
         {
-            RenderTexture.active = renderTexture;
-            Texture2D screenshot =
-                new(renderTexture.width, renderTexture.height, TextureFormat.RGB24, false);
-            screenshot.ReadPixels(new Rect(0, 0, renderTexture.width, renderTexture.height), 0, 0);
-            screenshot.Apply();
+            AsyncGPUReadback.Request(
+                renderTexture,
+                0,
+                TextureFormat.RGBA32,
+                request => OnGPUReadbackComplete(request, renderTexture, pass)
+            );
+        }
 
-            byte[] bytes = screenshot.EncodeToPNG();
+        /// <summary>
+        /// Saves the captured image to the appropriate file.
+        /// </summary>
+        private void OnGPUReadbackComplete(
+            AsyncGPUReadbackRequest request,
+            RenderTexture renderTexture,
+            RenderPass pass
+        )
+        {
+            if (request.hasError)
+            {
+                Debug.LogError("GPU readback error.");
+                return;
+            }
+
             string imageName = IsCapturingImageSequence
                 ? $"{pass.ToString()}Pass_{_sequenceCount}.png"
                 : $"{pass.ToString()}Pass.png";
             string filePath = Path.Combine(_rendersFolderPath, imageName);
-            await File.WriteAllBytesAsync(filePath, bytes);
 
-            await PlaybookAPIVerifier.UploadImageFile(pass, filePath);
+            Texture2D imageTexture =
+                new(renderTexture.width, renderTexture.height, TextureFormat.RGBA32, false);
+            imageTexture.Apply();
 
-            RenderTexture.active = null;
-            Destroy(screenshot);
+            // TODO: Find faster alternative
+            var v = imageTexture.EncodeToPNG();
+
+            File.WriteAllBytesAsync(filePath, imageTexture.EncodeToPNG());
+
+            Destroy(imageTexture);
         }
 
         private void ResetImageSequenceProperties()
@@ -175,13 +256,13 @@ namespace PlaybookUnitySDK.Scripts
 
         public void StartCaptureImageSequence()
         {
-            PlaybookFileUtilities.DeleteFolderContents(_rendersFolderPath);
-
             IsCapturingImageSequence = true;
+
+            PlaybookFileUtilities.DeleteFolderContents(_rendersFolderPath);
 
             ResetImageSequenceProperties();
 
-            _imageSequenceCoroutine = StartCoroutine(CaptureImageSequence_CO());
+            // _imageSequenceCoroutine = StartCoroutine(CaptureImageSequence_CO());
         }
 
         public void StopCaptureImageSequence()
@@ -195,17 +276,18 @@ namespace PlaybookUnitySDK.Scripts
             // TODO: Send zip to server then delete
             // DeleteFolderContents($"{rendersFolderPath}.zip");
 
-            if (_imageSequenceCoroutine != null)
-            {
-                StopCoroutine(_imageSequenceCoroutine);
-            }
+            // if (_imageSequenceCoroutine != null)
+            // {
+            //     StopCoroutine(_imageSequenceCoroutine);
+            // }
         }
 
         #endregion
 
-        private struct RenderPassMaterial
+        private struct RenderPassProperty
         {
             public RenderPass pass;
+            public RenderTexture texture;
             public Material material;
         }
     }
