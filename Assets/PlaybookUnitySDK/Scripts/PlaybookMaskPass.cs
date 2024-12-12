@@ -6,20 +6,20 @@ using UnityEngine;
 
 namespace PlaybookUnitySDK.Scripts
 {
+    public enum MaskGroup
+    {
+        Mask1,
+        Mask2,
+        Mask3,
+        Mask4,
+        Mask5,
+        Mask6,
+        Mask7,
+        CatchAll,
+    }
+
     public class PlaybookMaskPass : MonoBehaviour
     {
-        public enum MaskGroup
-        {
-            Mask1,
-            Mask2,
-            Mask3,
-            Mask4,
-            Mask5,
-            Mask6,
-            Mask7,
-            CatchAll,
-        }
-
         private Dictionary<MaskGroup, List<GameObject>> _maskGroups = new();
         private Material[] _maskMaterials;
 
@@ -96,7 +96,9 @@ namespace PlaybookUnitySDK.Scripts
             // Keep track of all visible objects in the scene (visible = active + has a renderer)
             // and default them to the catch-all mask
             _visibleObjectRenderers = FindObjectsOfType<Renderer>(false).ToList();
-            AddObjectsToMaskGroup(_visibleObjectRenderers.Select(rend => rend.gameObject).ToList());
+            AddObjectsToCatchallGroup(
+                _visibleObjectRenderers.Select(rend => rend.gameObject).ToList()
+            );
 
             _originalMaterials.Clear();
             foreach (Renderer objectRenderer in _visibleObjectRenderers)
@@ -145,13 +147,26 @@ namespace PlaybookUnitySDK.Scripts
         /// </summary>
         private void ApplyMaskColor(int maskGroup, GameObject target)
         {
-            Renderer[] renderers = target.GetComponentsInChildren<Renderer>();
+            Renderer rend = target.GetComponent<Renderer>();
 
-            foreach (Renderer rend in renderers)
+            // Save materials before replacing to reset later
+            _originalMaterials.TryAdd(rend, rend.materials);
+            rend.material = _maskMaterials[maskGroup];
+        }
+
+        /// <summary>
+        /// Add the given objects that are not already part of a different mask group
+        /// to the catch-all mask group.
+        /// </summary>
+        private void AddObjectsToCatchallGroup(List<GameObject> visibleObjects)
+        {
+            foreach (GameObject visibleObject in visibleObjects)
             {
-                // Save materials before replacing to reset later
-                _originalMaterials.TryAdd(rend, rend.materials);
-                rend.material = _maskMaterials[maskGroup];
+                // Object is not already part of a mask group. Add to catch-all
+                if (!_maskGroups.Any(group => group.Value.Contains(visibleObject)))
+                {
+                    AddObjectToMaskGroup(visibleObject, MaskGroup.CatchAll);
+                }
             }
         }
 
@@ -159,22 +174,12 @@ namespace PlaybookUnitySDK.Scripts
 
         #region Public Methods
 
-        /// <summary>
-        /// Set the mask group of the background. Background is default to the catch-all
-        /// mask group.
-        /// </summary>
         public void SetBackgroundMaskGroup(MaskGroup maskGroup)
         {
             _backgroundMaskGroup = maskGroup;
         }
 
-        /// <summary>
-        /// Add the given object to the given mask group.
-        /// </summary>
-        public void AddObjectToMaskGroup(
-            GameObject maskObject,
-            MaskGroup maskGroup = MaskGroup.CatchAll
-        )
+        public void AddObjectToMaskGroup(GameObject maskObject, MaskGroup maskGroup)
         {
             // TODO: Should all children of an object be in the same group?
             if (!maskObject.TryGetComponent(out Renderer rend))
@@ -184,25 +189,33 @@ namespace PlaybookUnitySDK.Scripts
             }
 
             // Remove the object from all mask groups to avoid duplicates
-            foreach (List<GameObject> maskObjects in _maskGroups.Values)
-            {
-                maskObjects.Remove(maskObject);
-            }
+            RemoveObjectFromMaskGroup(maskObject);
 
             _maskGroups[maskGroup].Add(maskObject);
         }
 
-        /// <summary>
-        /// Add the given objects to the given mask group.
-        /// </summary>
-        public void AddObjectsToMaskGroup(
-            List<GameObject> objects,
-            MaskGroup maskGroup = MaskGroup.CatchAll
-        )
+        public void AddObjectsToMaskGroup(List<GameObject> objects, MaskGroup maskGroup)
         {
             foreach (GameObject maskObject in objects)
             {
                 AddObjectToMaskGroup(maskObject, maskGroup);
+            }
+        }
+
+        public void RemoveObjectFromMaskGroup(GameObject maskObject)
+        {
+            // Remove the object if it exists in any mask group
+            foreach (List<GameObject> maskObjects in _maskGroups.Values)
+            {
+                maskObjects.Remove(maskObject);
+            }
+        }
+
+        public void RemoveObjectsFromMaskGroup(List<GameObject> objects)
+        {
+            foreach (GameObject maskObject in objects)
+            {
+                RemoveObjectFromMaskGroup(maskObject);
             }
         }
 

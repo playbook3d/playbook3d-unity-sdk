@@ -11,11 +11,13 @@ namespace PlaybookUnitySDK.Editor
     {
         private SerializedProperty _playbookAccountAPIKey;
         private SerializedProperty _framesPerSecond;
+        private SerializedProperty _maxFrames;
 
         private void OnEnable()
         {
             _playbookAccountAPIKey = serializedObject.FindProperty("playbookAccountAPIKey");
             _framesPerSecond = serializedObject.FindProperty("framesPerSecond");
+            _maxFrames = serializedObject.FindProperty("maxFrames");
         }
 
         public override void OnInspectorGUI()
@@ -27,14 +29,20 @@ namespace PlaybookUnitySDK.Editor
             GUIStyle largeBoldStyle =
                 new(EditorStyles.label) { fontSize = 13, fontStyle = FontStyle.Bold };
 
-            EditorGUILayout.PropertyField(_playbookAccountAPIKey);
+            if (!string.IsNullOrEmpty(((PlaybookSDK)target).ResultImageUrl))
+            {
+                GUILayout.Label("Result Image URL", largeBoldStyle);
+                GUILayout.TextField(((PlaybookSDK)target).ResultImageUrl);
+            }
 
-            serializedObject.ApplyModifiedProperties();
+            GUILayout.Space(10);
+            EditorGUILayout.PropertyField(_playbookAccountAPIKey);
 
             // Render Properties
             GUILayout.Space(10);
             GUILayout.Label("Render Properties", largeBoldStyle);
             EditorGUILayout.PropertyField(_framesPerSecond);
+            EditorGUILayout.PropertyField(_maxFrames);
 
             // Workflow Properties
             GUILayout.Space(10);
@@ -78,7 +86,7 @@ namespace PlaybookUnitySDK.Editor
                 GUI.color = Color.white;
             }
 
-            bool flags = isInPlayMode && teamsLoaded;
+            bool flags = isInPlayMode; // && teamsLoaded;
 
             // Don't allow user to capture image while capturing image sequence
             GUI.enabled = flags && !playbookSDK.IsCapturingImageSequence;
@@ -108,6 +116,8 @@ namespace PlaybookUnitySDK.Editor
 
                 EditorUtility.SetDirty(playbookSDK);
             }
+
+            serializedObject.ApplyModifiedProperties();
         }
     }
 }

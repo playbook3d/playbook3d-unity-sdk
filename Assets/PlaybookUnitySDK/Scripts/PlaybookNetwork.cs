@@ -332,10 +332,17 @@ namespace PlaybookUnitySDK.Scripts
 
         private async Task ConnectWebSocket(string uri)
         {
+            var url = new Uri($"{uri}/?token={XapiKey}&auth_token={_accessToken.access_token}");
+            Debug.Log($"<color=red>{url}</color>");
             _webSocket = new ClientWebSocket();
+
+            _webSocket.Options.SetRequestHeader("token", XapiKey);
+            _webSocket.Options.SetRequestHeader("auth_token", _accessToken.access_token);
+            _webSocket.Options.KeepAliveInterval = TimeSpan.FromSeconds(20);
+
             try
             {
-                await _webSocket.ConnectAsync(new Uri(uri), CancellationToken.None);
+                await _webSocket.ConnectAsync(url, CancellationToken.None);
                 Debug.Log("WebSocket connected!");
             }
             catch (Exception e)
@@ -346,7 +353,7 @@ namespace PlaybookUnitySDK.Scripts
 
         private async Task ReceiveMessagesFromWebSocket()
         {
-            byte[] buffer = new byte[1024];
+            byte[] buffer = new byte[1024 * 4];
             while (_webSocket?.State == WebSocketState.Open)
             {
                 WebSocketReceiveResult result = await _webSocket.ReceiveAsync(

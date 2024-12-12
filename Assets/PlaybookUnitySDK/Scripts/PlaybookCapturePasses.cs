@@ -40,6 +40,8 @@ namespace PlaybookUnitySDK.Scripts
         private RenderPassProperty _depthPassProperties;
         private RenderPassProperty _outlinePassProperties;
 
+        #region Lifecycle Events
+
         private void Awake()
         {
             InitializeProperties();
@@ -50,6 +52,8 @@ namespace PlaybookUnitySDK.Scripts
             PlaybookFileUtilities.DeleteFolderContents(_rendersFolderPath);
             PlaybookFileUtilities.DeleteFile($"{_rendersFolderPath}.zip");
         }
+
+        #endregion
 
         /// <summary>
         /// Initialize the required properties for capturing images and image sequences.
@@ -131,7 +135,7 @@ namespace PlaybookUnitySDK.Scripts
 
             CaptureImage(_maskPassRenderTexture, RenderPass.Mask);
 
-            _maskPass.ResetProperties();
+            // _maskPass.ResetProperties();
         }
 
         /// <summary>
