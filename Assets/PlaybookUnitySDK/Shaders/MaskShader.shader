@@ -2,7 +2,7 @@ Shader "Playbook3D/MaskShader"
 {
     Properties 
     {
-        _Color ("Color", Color) = (1,1,1)
+        _Color ("Color", Color) = (1,1,1, 1)
     }
      
     SubShader 

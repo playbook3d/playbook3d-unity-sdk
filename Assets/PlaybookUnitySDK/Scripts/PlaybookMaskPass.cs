@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEditor;
 using UnityEngine;
 
 namespace PlaybookUnitySDK.Scripts
@@ -30,19 +31,31 @@ namespace PlaybookUnitySDK.Scripts
 
         private List<Renderer> _visibleObjectRenderers;
 
-        private Color[] _maskColors =
+        // private Color[] _maskColors =
+        // {
+        //     new(255 / 255f, 233 / 255f, 6 / 255f, 255 / 255f),
+        //     new(5 / 255f, 137 / 255f, 214 / 255f, 255 / 255f),
+        //     new(162 / 255f, 212 / 255f, 213 / 255f, 255 / 255f),
+        //     new(0 / 255f, 0 / 255f, 22 / 255f, 255 / 255f),
+        //     new(0 / 255f, 173 / 255f, 88 / 255f, 255 / 255f),
+        //     new(240 / 255f, 132 / 255f, 207 / 255f, 255 / 255f),
+        //     new(238 / 255f, 158 / 255f, 62 / 255f, 255 / 255f),
+        //     new(230 / 255f, 0 / 255f, 12 / 255f, 255 / 255f),
+        // };
+
+        private Color32[] _maskColors =
         {
-            new(255 / 255f, 233 / 255f, 6 / 255f, 255 / 255f),
-            new(5 / 255f, 137 / 255f, 214 / 255f, 255 / 255f),
-            new(162 / 255f, 212 / 255f, 213 / 255f, 255 / 255f),
-            new(0 / 255f, 0 / 255f, 22 / 255f, 255 / 255f),
-            new(0 / 255f, 173 / 255f, 88 / 255f, 255 / 255f),
-            new(240 / 255f, 132 / 255f, 207 / 255f, 255 / 255f),
-            new(238 / 255f, 158 / 255f, 62 / 255f, 255 / 255f),
-            new(230 / 255f, 0 / 255f, 12 / 255f, 255 / 255f),
+            new(255, 233, 6, 255),
+            new(5, 137, 214, 255),
+            new(162, 212, 213, 255),
+            new(0, 0, 22, 255),
+            new(0, 173, 88, 255),
+            new(240, 132, 207, 255),
+            new(238, 158, 62, 255),
+            new(230, 0, 12, 255),
         };
 
-        private static readonly int Color = Shader.PropertyToID("_Color");
+        private static readonly int Color = Shader.PropertyToID("_BaseColor");
 
         private void Awake()
         {
@@ -59,7 +72,7 @@ namespace PlaybookUnitySDK.Scripts
             _maskMaterials = new Material[_maskColors.Length];
             for (int i = 0; i < _maskColors.Length; i++)
             {
-                Material material = new(Shader.Find("Playbook3D/MaskShader"));
+                Material material = new(Shader.Find("Universal Render Pipeline/Unlit"));
                 material.SetColor(Color, _maskColors[i]);
                 _maskMaterials[i] = material;
             }

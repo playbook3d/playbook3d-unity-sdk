@@ -32,26 +32,17 @@ namespace PlaybookUnitySDK.Scripts
         /// </summary>
         public static void ZipFolderContents(string folderPath)
         {
-            if (Directory.Exists(folderPath))
-            {
-                string rendersFolderZipPath = $"{folderPath}.zip";
-
-                if (File.Exists(rendersFolderZipPath))
-                {
-                    File.Delete(rendersFolderZipPath);
-                }
-
-                ZipFile.CreateFromDirectory(
-                    folderPath,
-                    rendersFolderZipPath,
-                    CompressionLevel.Fastest,
-                    true
-                );
-            }
-            else
+            if (!Directory.Exists(folderPath))
             {
                 Debug.LogError($"Folder {folderPath} does not exist.");
+                return;
             }
+
+            string folderZipPath = $"{folderPath}.zip";
+
+            DeleteFile(folderZipPath);
+
+            ZipFile.CreateFromDirectory(folderPath, folderZipPath, CompressionLevel.Fastest, true);
         }
 
         /// <summary>
@@ -63,6 +54,14 @@ namespace PlaybookUnitySDK.Scripts
             {
                 Directory.Delete(folderPath, true);
                 Directory.CreateDirectory(folderPath);
+            }
+        }
+
+        public static void DeleteFile(string filePath)
+        {
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
             }
         }
     }
