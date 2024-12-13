@@ -276,8 +276,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 729faed31f4c58347acafef6297dbb6a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  playbookAccountAPIKey: 
+  playbookAccountAPIKey: d668ce33-54f3-4ce0-bf39-8b762992e1ab
   framesPerSecond: 24
+  maxFrames: 144
 --- !u!114 &330585549
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -554,7 +555,8 @@ Transform:
   m_LocalPosition: {x: 2.71, y: -0.94, z: -2.82}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 1352455182}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &410087039
@@ -927,12 +929,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1352455178}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 1.29, y: -1.43, z: 0.15134144}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -1.4200001, y: -0.48999995, z: 2.9713414}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 371395477}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1831790487
 GameObject:
@@ -1308,5 +1310,4 @@ SceneRoots:
   - {fileID: 1956573154}
   - {fileID: 1831790489}
   - {fileID: 2053302930}
-  - {fileID: 1352455182}
   - {fileID: 371395477}

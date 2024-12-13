@@ -8,6 +8,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using SocketIOClient;
 using UnityEngine;
 using UnityEngine.Networking;
 using File = UnityEngine.Windows.File;
@@ -40,6 +41,7 @@ namespace PlaybookUnitySDK.Scripts
         private const string XapiKey = "";
 
         private ClientWebSocket _webSocket;
+        private SocketIOUnity _socket;
 
         private IEnumerator Start()
         {
@@ -53,6 +55,9 @@ namespace PlaybookUnitySDK.Scripts
 
         private async void OnDestroy()
         {
+            _socket.Disconnect();
+            _socket.Dispose();
+
             await CloseWebSocket();
         }
 
@@ -196,6 +201,7 @@ namespace PlaybookUnitySDK.Scripts
             if (request.result == UnityWebRequest.Result.Success)
             {
                 Debug.Log("<color=magenta>Success response from running workflow.</color>");
+                Debug.Log($"<color=white>{request.downloadHandler.text}</color>");
             }
             else
             {
@@ -275,11 +281,7 @@ namespace PlaybookUnitySDK.Scripts
 
             yield return request.SendWebRequest();
 
-            if (request.result == UnityWebRequest.Result.Success)
-            {
-                Debug.Log($"<color=white>Successfully uploaded image {filePath}</color>");
-            }
-            else
+            if (request.result != UnityWebRequest.Result.Success)
             {
                 Debug.LogError(request.error);
             }
@@ -332,23 +334,66 @@ namespace PlaybookUnitySDK.Scripts
 
         private async Task ConnectWebSocket(string uri)
         {
-            var url = new Uri($"{uri}/?token={XapiKey}&auth_token={_accessToken.access_token}");
-            Debug.Log($"<color=red>{url}</color>");
-            _webSocket = new ClientWebSocket();
+            Uri url = new(uri);
 
-            _webSocket.Options.SetRequestHeader("token", XapiKey);
-            _webSocket.Options.SetRequestHeader("auth_token", _accessToken.access_token);
-            _webSocket.Options.KeepAliveInterval = TimeSpan.FromSeconds(20);
+            Debug.Log($"<color=red>{_accessToken.access_token}</color>");
 
-            try
-            {
-                await _webSocket.ConnectAsync(url, CancellationToken.None);
-                Debug.Log("WebSocket connected!");
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"WebSocket connection failed: {e.Message}");
-            }
+            _socket = new SocketIOUnity(
+                url,
+                new SocketIOOptions
+                {
+                    Query = new Dictionary<string, string>
+                    {
+                        { "token", XapiKey },
+                        { "auth_token", _accessToken.access_token },
+                    },
+                    Reconnection = true,
+                    ReconnectionAttempts = 3,
+                    Transport = SocketIOClient.Transport.TransportProtocol.WebSocket,
+                }
+            );
+
+            _socket.OnConnected += OnSocketConnected;
+            _socket.OnDisconnected += OnSocketDisconnected;
+            _socket.OnAny(OnAnyEvent);
+
+            _socket.On(
+                "run_info",
+                response => Debug.Log($"<color=cyan>Message from server {response}</color>")
+            );
+
+            _socket.On(
+                "server_status",
+                response => Debug.Log($"<color=green>Message from server {response}</color>")
+            );
+
+            _socket.Connect();
+            await _socket.ConnectAsync();
+
+            // try
+            // {
+            //     await _webSocket.ConnectAsync(url, CancellationToken.None);
+            //     Debug.Log("WebSocket connected!");
+            // }
+            // catch (Exception e)
+            // {
+            //     Debug.LogError($"WebSocket connection failed: {e.Message}");
+            // }
+        }
+
+        private void OnSocketDisconnected(object sender, string e)
+        {
+            Debug.Log($"<color=red>{e}</color>");
+        }
+
+        private void OnAnyEvent(string eventname, SocketIOResponse response)
+        {
+            Debug.Log($"<color=white>{response}</color>");
+        }
+
+        private void OnSocketConnected(object sender, EventArgs e)
+        {
+            Debug.Log($"<color=green>Connected</color>");
         }
 
         private async Task ReceiveMessagesFromWebSocket()

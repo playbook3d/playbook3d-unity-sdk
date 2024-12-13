@@ -20,6 +20,7 @@ namespace PlaybookUnitySDK.Scripts
         }
 
         public bool IsCapturingImageSequence { get; private set; }
+        public int FrameCount { get; private set; }
 
         public event Action ImageCaptureComplete;
         public event Action ImageSequenceCaptureComplete;
@@ -28,7 +29,6 @@ namespace PlaybookUnitySDK.Scripts
         private const string OutlineShader = "Shader Graphs/OutlinePassShaderGraph";
 
         // Image sequence properties
-        private int _sequenceCount;
         private Coroutine _imageSequenceCoroutine;
 
         private string _rendersFolderPath;
@@ -95,8 +95,6 @@ namespace PlaybookUnitySDK.Scripts
         /// </summary>
         public void CaptureRenderPasses()
         {
-            _sequenceCount++;
-
             // Beauty pass
             CaptureImage(_beautyPassRenderTexture, RenderPass.Beauty);
 
@@ -110,6 +108,8 @@ namespace PlaybookUnitySDK.Scripts
             CaptureFullscreenPass(_outlinePassProperties);
 
             _renderCamera.targetTexture = null;
+
+            FrameCount++;
         }
 
         /// <summary>
@@ -135,7 +135,7 @@ namespace PlaybookUnitySDK.Scripts
 
             CaptureImage(_maskPassRenderTexture, RenderPass.Mask);
 
-            // _maskPass.ResetProperties();
+            _maskPass.ResetProperties();
         }
 
         /// <summary>
@@ -174,7 +174,7 @@ namespace PlaybookUnitySDK.Scripts
 
             byte[] bytes = screenshot.EncodeToPNG();
             string imageName = IsCapturingImageSequence
-                ? $"{pass.ToString()}Pass_{_sequenceCount}.png"
+                ? $"{pass.ToString()}Pass_{FrameCount}.png"
                 : $"{pass.ToString()}Pass.png";
             string filePath = Path.Combine(_rendersFolderPath, imageName);
 
@@ -238,7 +238,7 @@ namespace PlaybookUnitySDK.Scripts
         {
             IsCapturingImageSequence = true;
 
-            _sequenceCount = 0;
+            FrameCount = 0;
 
             // Ensure previous renders are cleared
             PlaybookFileUtilities.DeleteFolderContents(_rendersFolderPath);

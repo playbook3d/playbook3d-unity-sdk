@@ -94,6 +94,11 @@ namespace PlaybookUnitySDK.Scripts
             _playbookCapturePasses.CaptureRenderPasses();
 
             _timePassed = 0;
+
+            if (_playbookCapturePasses.FrameCount >= maxFrames)
+            {
+                StopCaptureImageSequence();
+            }
         }
 
         private void OnDestroy()
