@@ -1,0 +1,9 @@
+{
+  "name": "com.Playbook3D.PlaybookSDK",
+  "version": "1.0.0",
+  "displayName": "PlaybookSDK",
+  "unity": "2022.3",
+  "dependencies": {
+    "com.itisnajim.socketiounity": "https://github.com/itisnajim/SocketIOUnity.git"
+  }
+}
