@@ -17,13 +17,34 @@ namespace PlaybookUnitySDK.Scripts
         private int framesPerSecond = 24;
 
         [SerializeField]
+        [Range(1, 120)]
         [Tooltip("The max amount of frames that will be captured in an image sequence.")]
-        private int maxFrames = 144;
+        private int maxFrames = 120;
+
+        [SerializeField]
+        [Tooltip(
+            "How detailed logs should be.\nError - Only show error logs\nDefault - Show minimal logs\nAll - Show all logs throughout the workflow proces"
+        )]
+        private DebugLevel sdkDebugLevel = DebugLevel.Default;
 
         public bool IsCapturingImageSequence => _playbookCapturePasses.IsCapturingImageSequence;
-        public string ResultImageUrl { get; set; }
+        public List<string> ResultImageUrls { get; } = new();
+
+        public int CurrTeamIndex
+        {
+            get => _playbookNetwork.CurrTeamIndex;
+            set => _playbookNetwork.CurrTeamIndex = value;
+        }
+
+        public int CurrWorkflowIndex
+        {
+            get => _playbookNetwork.CurrWorkflowIndex;
+            set => _playbookNetwork.CurrWorkflowIndex = value;
+        }
 
         private static PlaybookSDK _instance;
+
+        public static DebugLevel debugLevel;
 
         private PlaybookNetwork _playbookNetwork;
         private PlaybookCapturePasses _playbookCapturePasses;
@@ -31,6 +52,8 @@ namespace PlaybookUnitySDK.Scripts
 
         private float _interval;
         private float _timePassed;
+
+        #region Initialization
 
         private void OnValidate()
         {
@@ -46,10 +69,10 @@ namespace PlaybookUnitySDK.Scripts
             _interval = 1f / framesPerSecond;
             _playbookNetwork.PlaybookAccountAPIKey = playbookAccountAPIKey;
 
+            _playbookNetwork.ReceivedUploadUrl += url => ResultImageUrls.Add(url);
+
             _playbookCapturePasses.ImageCaptureComplete += OnImageCaptureComplete;
             _playbookCapturePasses.ImageSequenceCaptureComplete += OnImageSequenceCaptureComplete;
-
-            ResultImageUrl = "TEST";
         }
 
         private void EnsureSingleton()
@@ -77,7 +100,11 @@ namespace PlaybookUnitySDK.Scripts
             {
                 _playbookMaskPass = GetComponent<PlaybookMaskPass>();
             }
+
+            debugLevel = sdkDebugLevel;
         }
+
+        #endregion
 
         private void Update()
         {
@@ -90,11 +117,11 @@ namespace PlaybookUnitySDK.Scripts
                 _timePassed += Time.deltaTime;
                 return;
             }
+            _timePassed = 0;
 
             _playbookCapturePasses.CaptureRenderPasses();
 
-            _timePassed = 0;
-
+            // Image sequence has passed max frame count
             if (_playbookCapturePasses.FrameCount >= maxFrames)
             {
                 StopCaptureImageSequence();
@@ -121,17 +148,39 @@ namespace PlaybookUnitySDK.Scripts
 
         public void InvokeCaptureImage()
         {
+            PlaybookLogger.Log("Rendering a single frame.", DebugLevel.Default, Color.white);
+
             _playbookCapturePasses.InvokeCaptureImage();
         }
 
         public void StartCaptureImageSequence()
         {
+            PlaybookLogger.Log(
+                "Starting to capture image sequence.",
+                DebugLevel.Default,
+                Color.white
+            );
+
             _playbookCapturePasses.StartCaptureImageSequence();
         }
 
         public void StopCaptureImageSequence()
         {
+            PlaybookLogger.Log(
+                "Stopping capturing image sequence.",
+                DebugLevel.Default,
+                Color.white
+            );
+
             _playbookCapturePasses.StopCaptureImageSequence();
+        }
+
+        /// <summary>
+        /// Copies the given text to the user's clipboard.
+        /// </summary>
+        public static void CopyToClipboard(string text)
+        {
+            GUIUtility.systemCopyBuffer = text;
         }
 
         #endregion

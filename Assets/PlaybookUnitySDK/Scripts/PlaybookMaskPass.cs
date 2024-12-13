@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEditor;
 using UnityEngine;
 
 namespace PlaybookUnitySDK.Scripts
 {
+    // Playbook supports up to 7 mask groups
     public enum MaskGroup
     {
         Mask1,
@@ -18,6 +18,9 @@ namespace PlaybookUnitySDK.Scripts
         CatchAll,
     }
 
+    /// <summary>
+    /// This class is responsible for setting up the workflow's mask pass.
+    /// </summary>
     public class PlaybookMaskPass : MonoBehaviour
     {
         private Dictionary<MaskGroup, List<GameObject>> _maskGroups = new();
@@ -31,19 +34,7 @@ namespace PlaybookUnitySDK.Scripts
 
         private List<Renderer> _visibleObjectRenderers;
 
-        // private Color[] _maskColors =
-        // {
-        //     new(255 / 255f, 233 / 255f, 6 / 255f, 255 / 255f),
-        //     new(5 / 255f, 137 / 255f, 214 / 255f, 255 / 255f),
-        //     new(162 / 255f, 212 / 255f, 213 / 255f, 255 / 255f),
-        //     new(0 / 255f, 0 / 255f, 22 / 255f, 255 / 255f),
-        //     new(0 / 255f, 173 / 255f, 88 / 255f, 255 / 255f),
-        //     new(240 / 255f, 132 / 255f, 207 / 255f, 255 / 255f),
-        //     new(238 / 255f, 158 / 255f, 62 / 255f, 255 / 255f),
-        //     new(230 / 255f, 0 / 255f, 12 / 255f, 255 / 255f),
-        // };
-
-        private Color32[] _maskColors =
+        private readonly Color32[] _maskColors =
         {
             new(255, 233, 6, 255),
             new(5, 137, 214, 255),
@@ -55,14 +46,14 @@ namespace PlaybookUnitySDK.Scripts
             new(230, 0, 12, 255),
         };
 
-        private static readonly int Color = Shader.PropertyToID("_BaseColor");
+        private static readonly int Color = Shader.PropertyToID("_Color");
+
+        #region Initialization
 
         private void Awake()
         {
             InitializeProperties();
         }
-
-        #region Private Methods
 
         private void InitializeProperties()
         {
@@ -72,7 +63,7 @@ namespace PlaybookUnitySDK.Scripts
             _maskMaterials = new Material[_maskColors.Length];
             for (int i = 0; i < _maskColors.Length; i++)
             {
-                Material material = new(Shader.Find("Universal Render Pipeline/Unlit"));
+                Material material = new(Shader.Find("Unlit/Color"));
                 material.SetColor(Color, _maskColors[i]);
                 _maskMaterials[i] = material;
             }
@@ -82,6 +73,10 @@ namespace PlaybookUnitySDK.Scripts
                 _maskGroups.Add(maskGroup, new List<GameObject>());
             }
         }
+
+        #endregion
+
+        #region Mask Pass Workflow
 
         /// <summary>
         /// Save the current camera properties and object materials so that they can be reset to
@@ -154,6 +149,10 @@ namespace PlaybookUnitySDK.Scripts
             rend.material = _maskMaterials[maskGroup];
         }
 
+        #endregion
+
+        #region Mask Group Add / Remove
+
         /// <summary>
         /// Add the given objects that are not already part of a different mask group
         /// to the catch-all mask group.
@@ -170,26 +169,36 @@ namespace PlaybookUnitySDK.Scripts
             }
         }
 
-        #endregion
-
-        #region Public Methods
+        private void RemoveObjectFromMaskGroup(GameObject maskObject)
+        {
+            // Remove the object if it exists in any mask group
+            foreach (List<GameObject> maskObjects in _maskGroups.Values)
+            {
+                maskObjects.Remove(maskObject);
+            }
+        }
 
         public void SetBackgroundMaskGroup(MaskGroup maskGroup)
         {
+            PlaybookLogger.Log($"Adding background to group {maskGroup}", DebugLevel.All);
+
             _backgroundMaskGroup = maskGroup;
         }
 
         public void AddObjectToMaskGroup(GameObject maskObject, MaskGroup maskGroup)
         {
-            // TODO: Should all children of an object be in the same group?
-            if (!maskObject.TryGetComponent(out Renderer rend))
+            if (!maskObject.TryGetComponent(out Renderer _))
             {
-                Debug.LogError($"{maskObject} does not have a renderer.");
+                PlaybookLogger.LogError(
+                    $"{maskObject} does not have a renderer. Could not add to mask group."
+                );
                 return;
             }
 
             // Remove the object from all mask groups to avoid duplicates
             RemoveObjectFromMaskGroup(maskObject);
+
+            PlaybookLogger.Log($"Adding {maskObject} to group {maskGroup}", DebugLevel.All);
 
             _maskGroups[maskGroup].Add(maskObject);
         }
@@ -199,23 +208,6 @@ namespace PlaybookUnitySDK.Scripts
             foreach (GameObject maskObject in objects)
             {
                 AddObjectToMaskGroup(maskObject, maskGroup);
-            }
-        }
-
-        public void RemoveObjectFromMaskGroup(GameObject maskObject)
-        {
-            // Remove the object if it exists in any mask group
-            foreach (List<GameObject> maskObjects in _maskGroups.Values)
-            {
-                maskObjects.Remove(maskObject);
-            }
-        }
-
-        public void RemoveObjectsFromMaskGroup(List<GameObject> objects)
-        {
-            foreach (GameObject maskObject in objects)
-            {
-                RemoveObjectFromMaskGroup(maskObject);
             }
         }
 

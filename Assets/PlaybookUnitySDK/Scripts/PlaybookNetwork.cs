@@ -3,11 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
-using System.Net.WebSockets;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using SocketIOClient;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -15,17 +12,25 @@ using File = UnityEngine.Windows.File;
 
 namespace PlaybookUnitySDK.Scripts
 {
+    /// <summary>
+    /// This class is responsible for sending and receiving information from
+    /// Playbook's API.
+    /// </summary>
     public class PlaybookNetwork : MonoBehaviour
     {
         public string PlaybookAccountAPIKey { get; set; }
 
-        private AccessToken _accessToken;
+        private string _accessToken;
         private Team[] _teams;
         private Workflow[] _workflows;
-        private UploadURLs _uploadUrls;
+        private UploadUrls _uploadUrls;
 
-        public static int CurrTeamIndex { get; set; }
-        public static int CurrWorkflowIndex { get; set; }
+        private SocketIOUnity _socket;
+
+        public int CurrTeamIndex { get; set; }
+        public int CurrWorkflowIndex { get; set; }
+
+        public event Action<string> ReceivedUploadUrl;
 
         private const string TeamsURL = "https://dev-accounts.playbook3d.com/teams";
         private const string WorkflowsURL = "https://dev-accounts.playbook3d.com/workflows";
@@ -40,44 +45,29 @@ namespace PlaybookUnitySDK.Scripts
         private const string RunWorkflowEndpoint = "";
         private const string XapiKey = "";
 
-        private ClientWebSocket _webSocket;
-        private SocketIOUnity _socket;
+        #region Initialization
 
         private IEnumerator Start()
         {
             yield return StartCoroutine(InitializeNetworkProperties());
 
-            Task connectTask = ConnectWebSocket(PlaybookServerURL);
-            yield return new WaitUntil(() => connectTask.IsCompleted);
-
-            Task receiveTask = ReceiveMessagesFromWebSocket();
-        }
-
-        private async void OnDestroy()
-        {
-            _socket.Disconnect();
-            _socket.Dispose();
-
-            await CloseWebSocket();
+            ConnectWebSocket(PlaybookServerURL);
         }
 
         private IEnumerator InitializeNetworkProperties()
         {
+            // Get the user's access token
             string accessTokenUrl = $"{AccountBaseURL}{TokenEndpoint}{PlaybookAccountAPIKey}";
             yield return StartCoroutine(
                 GetResponseAs<AccessToken>(
                     accessTokenUrl,
-                    accessToken => _accessToken = accessToken
+                    accessToken => _accessToken = accessToken.access_token
                 )
             );
 
             // Get the user's teams + workflows
             Dictionary<string, string> headers =
-                new()
-                {
-                    { "Authorization", $"Bearer {_accessToken.access_token}" },
-                    { "X-API-KEY", XapiKey },
-                };
+                new() { { "Authorization", $"Bearer {_accessToken}" }, { "X-API-KEY", XapiKey } };
             yield return StartCoroutine(
                 GetResponseWithWrapper<Team>(TeamsURL, teams => _teams = teams, headers)
             );
@@ -92,27 +82,23 @@ namespace PlaybookUnitySDK.Scripts
             // Get the user's upload URLs
             string uploadUrl = $"{AccountBaseURL}{UploadEndpoint}";
             yield return StartCoroutine(
-                GetResponseAs<UploadURLs>(
+                GetResponseAs<UploadUrls>(
                     uploadUrl,
                     uploadUrls => _uploadUrls = uploadUrls,
-                    new Dictionary<string, string>
-                    {
-                        { "Authorization", $"Bearer {_accessToken.access_token}" },
-                    }
+                    new Dictionary<string, string> { { "Authorization", $"Bearer {_accessToken}" } }
                 )
             );
+        }
 
-            // string resultUrl = $"{AccountBaseURL}{DownloadEndpoint}";
-            // yield return StartCoroutine(
-            //     GetResponseAs<RenderResult>(
-            //         resultUrl,
-            //         result => Debug.Log(result),
-            //         new Dictionary<string, string>
-            //         {
-            //             { "Authorization", $"Bearer {_accessToken.access_token}" },
-            //         }
-            //     )
-            // );
+        #endregion
+
+        private void OnDestroy()
+        {
+            if (_socket != null)
+            {
+                _socket.Disconnect();
+                _socket.Dispose();
+            }
         }
 
         #region Get Response Methods
@@ -138,7 +124,7 @@ namespace PlaybookUnitySDK.Scripts
 
             if (request.result != UnityWebRequest.Result.Success)
             {
-                Debug.LogError(request.error);
+                PlaybookLogger.LogError($"Could not get response {request.error}");
             }
             else
             {
@@ -164,7 +150,7 @@ namespace PlaybookUnitySDK.Scripts
 
             if (request.result != UnityWebRequest.Result.Success)
             {
-                Debug.LogError(request.error);
+                PlaybookLogger.LogError($"Could not get response {request.error}");
             }
             else
             {
@@ -174,6 +160,9 @@ namespace PlaybookUnitySDK.Scripts
 
         #endregion
 
+        /// <summary>
+        /// Run the currently selected render workflow.
+        /// </summary>
         private IEnumerator RunWorkflow(string accessToken)
         {
             string url = $"{ApiBaseURL}{RunWorkflowEndpoint}{GetCurrentSelectedWorkflow().team_id}";
@@ -192,6 +181,8 @@ namespace PlaybookUnitySDK.Scripts
 
             request.uploadHandler = new UploadHandlerRaw(bodyRaw);
             request.downloadHandler = new DownloadHandlerBuffer();
+
+            // Set request headers
             request.SetRequestHeader("Content-Type", "application/json");
             request.SetRequestHeader("Authorization", $"Bearer {accessToken}");
             request.SetRequestHeader("X-API-KEY", XapiKey);
@@ -200,12 +191,15 @@ namespace PlaybookUnitySDK.Scripts
 
             if (request.result == UnityWebRequest.Result.Success)
             {
-                Debug.Log("<color=magenta>Success response from running workflow.</color>");
-                Debug.Log($"<color=white>{request.downloadHandler.text}</color>");
+                PlaybookLogger.Log(
+                    "Success response from running workflow.",
+                    DebugLevel.Default,
+                    Color.magenta
+                );
             }
             else
             {
-                Debug.LogError($"Could not get response: {request.error}");
+                PlaybookLogger.LogError($"Could not run workflow: {request.error}");
             }
         }
 
@@ -225,7 +219,7 @@ namespace PlaybookUnitySDK.Scripts
 
             string currTeamId = _teams[CurrTeamIndex].id;
             return _workflows.Where(workflow => workflow.team_id == currTeamId).ToArray()[
-                CurrTeamIndex
+                CurrWorkflowIndex
             ];
         }
 
@@ -260,7 +254,7 @@ namespace PlaybookUnitySDK.Scripts
                 yield return StartCoroutine(UploadFile(url, filePath, contentType));
             }
 
-            StartCoroutine(RunWorkflow(_accessToken.access_token));
+            StartCoroutine(RunWorkflow(_accessToken));
         }
 
         /// <summary>
@@ -270,7 +264,7 @@ namespace PlaybookUnitySDK.Scripts
         {
             if (!File.Exists(filePath))
             {
-                Debug.LogError($"{filePath} does not exist.");
+                PlaybookLogger.LogError($"{filePath} does not exist.");
                 yield return null;
             }
 
@@ -283,7 +277,7 @@ namespace PlaybookUnitySDK.Scripts
 
             if (request.result != UnityWebRequest.Result.Success)
             {
-                Debug.LogError(request.error);
+                PlaybookLogger.LogError(request.error);
             }
         }
 
@@ -332,11 +326,12 @@ namespace PlaybookUnitySDK.Scripts
 
         #region Websocket
 
-        private async Task ConnectWebSocket(string uri)
+        /// <summary>
+        /// Connect to the given WebSocket.
+        /// </summary>
+        private void ConnectWebSocket(string uri)
         {
             Uri url = new(uri);
-
-            Debug.Log($"<color=red>{_accessToken.access_token}</color>");
 
             _socket = new SocketIOUnity(
                 url,
@@ -345,7 +340,7 @@ namespace PlaybookUnitySDK.Scripts
                     Query = new Dictionary<string, string>
                     {
                         { "token", XapiKey },
-                        { "auth_token", _accessToken.access_token },
+                        { "auth_token", _accessToken },
                     },
                     Reconnection = true,
                     ReconnectionAttempts = 3,
@@ -355,81 +350,47 @@ namespace PlaybookUnitySDK.Scripts
 
             _socket.OnConnected += OnSocketConnected;
             _socket.OnDisconnected += OnSocketDisconnected;
-            _socket.OnAny(OnAnyEvent);
 
-            _socket.On(
-                "run_info",
-                response => Debug.Log($"<color=cyan>Message from server {response}</color>")
-            );
-
-            _socket.On(
-                "server_status",
-                response => Debug.Log($"<color=green>Message from server {response}</color>")
-            );
+            _socket.On("run_info", ReceiveRunInfoResponse);
 
             _socket.Connect();
-            await _socket.ConnectAsync();
-
-            // try
-            // {
-            //     await _webSocket.ConnectAsync(url, CancellationToken.None);
-            //     Debug.Log("WebSocket connected!");
-            // }
-            // catch (Exception e)
-            // {
-            //     Debug.LogError($"WebSocket connection failed: {e.Message}");
-            // }
         }
 
-        private void OnSocketDisconnected(object sender, string e)
+        private static void OnSocketDisconnected(object sender, string e)
         {
-            Debug.Log($"<color=red>{e}</color>");
+            PlaybookLogger.Log("Disconnected from socket.", DebugLevel.All, Color.red);
         }
 
-        private void OnAnyEvent(string eventname, SocketIOResponse response)
+        private static void OnSocketConnected(object sender, EventArgs e)
         {
-            Debug.Log($"<color=white>{response}</color>");
+            PlaybookLogger.Log("Connected to socket.", DebugLevel.All, Color.green);
         }
 
-        private void OnSocketConnected(object sender, EventArgs e)
+        /// <summary>
+        /// Receive the response given by the WebSockets "run_info" event.
+        /// </summary>
+        private void ReceiveRunInfoResponse(SocketIOResponse response)
         {
-            Debug.Log($"<color=green>Connected</color>");
-        }
+            JArray jsonArray = JArray.Parse(response.ToString());
 
-        private async Task ReceiveMessagesFromWebSocket()
-        {
-            byte[] buffer = new byte[1024 * 4];
-            while (_webSocket?.State == WebSocketState.Open)
+            string runStatus = jsonArray[0]["run_status"]["type"].Value<string>();
+
+            PlaybookLogger.Log(runStatus, DebugLevel.All);
+
+            // Image was successfully rendered
+            if (string.Equals(runStatus, "executed"))
             {
-                WebSocketReceiveResult result = await _webSocket.ReceiveAsync(
-                    new ArraySegment<byte>(buffer),
-                    CancellationToken.None
+                string imageUrl = jsonArray[0]["run_status"]["url_image"].Value<string>();
+
+                PlaybookLogger.Log(
+                    "Got a result! Copy the result image URL from the PlaybookSDK component.",
+                    DebugLevel.Default,
+                    Color.green
                 );
+                PlaybookLogger.Log($"Result image URL: {imageUrl}", DebugLevel.All);
 
-                if (result.MessageType != WebSocketMessageType.Close)
-                {
-                    string receivedMessage = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                    Debug.Log($"Message received: {receivedMessage}");
-                }
+                ReceivedUploadUrl?.Invoke(imageUrl);
             }
-        }
-
-        private async Task CloseWebSocket()
-        {
-            if (_webSocket == null)
-                return;
-
-            if (_webSocket.State == WebSocketState.Open)
-            {
-                await _webSocket.CloseAsync(
-                    WebSocketCloseStatus.NormalClosure,
-                    "Closing connection",
-                    CancellationToken.None
-                );
-            }
-
-            _webSocket.Dispose();
-            _webSocket = null;
         }
 
         #endregion
@@ -458,7 +419,7 @@ namespace PlaybookUnitySDK.Scripts
         }
 
         [Serializable]
-        private struct UploadURLs
+        private struct UploadUrls
         {
             public string beauty;
             public string beauty_zip;
@@ -479,6 +440,7 @@ namespace PlaybookUnitySDK.Scripts
                         PlaybookCapturePasses.RenderPass.Mask => mask,
                         PlaybookCapturePasses.RenderPass.Depth => depth,
                         PlaybookCapturePasses.RenderPass.Outline => outline,
+                        _ => throw new ArgumentOutOfRangeException(nameof(pass), pass, null),
                     };
                 }
 
@@ -488,14 +450,9 @@ namespace PlaybookUnitySDK.Scripts
                     PlaybookCapturePasses.RenderPass.Mask => mask_zip,
                     PlaybookCapturePasses.RenderPass.Depth => depth_zip,
                     PlaybookCapturePasses.RenderPass.Outline => outline_zip,
+                    _ => throw new ArgumentOutOfRangeException(nameof(pass), pass, null),
                 };
             }
-        }
-
-        [Serializable]
-        private struct RenderResult
-        {
-            public string render_result;
         }
 
         [Serializable]

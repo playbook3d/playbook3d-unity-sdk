@@ -12,12 +12,14 @@ namespace PlaybookUnitySDK.Editor
         private SerializedProperty _playbookAccountAPIKey;
         private SerializedProperty _framesPerSecond;
         private SerializedProperty _maxFrames;
+        private SerializedProperty _debugLevel;
 
         private void OnEnable()
         {
             _playbookAccountAPIKey = serializedObject.FindProperty("playbookAccountAPIKey");
             _framesPerSecond = serializedObject.FindProperty("framesPerSecond");
             _maxFrames = serializedObject.FindProperty("maxFrames");
+            _debugLevel = serializedObject.FindProperty("sdkDebugLevel");
         }
 
         public override void OnInspectorGUI()
@@ -29,13 +31,22 @@ namespace PlaybookUnitySDK.Editor
             GUIStyle largeBoldStyle =
                 new(EditorStyles.label) { fontSize = 13, fontStyle = FontStyle.Bold };
 
-            if (!string.IsNullOrEmpty(((PlaybookSDK)target).ResultImageUrl))
+            // Render results
+            if (playbookSDK.ResultImageUrls.Count != 0)
             {
-                GUILayout.Label("Result Image URL", largeBoldStyle);
-                GUILayout.TextField(((PlaybookSDK)target).ResultImageUrl);
+                GUILayout.Label("Result Image URLs", largeBoldStyle);
+                foreach (string resultImageUrl in playbookSDK.ResultImageUrls)
+                {
+                    GUILayout.Label(resultImageUrl);
+
+                    if (GUILayout.Button("Copy URL"))
+                    {
+                        PlaybookSDK.CopyToClipboard(resultImageUrl);
+                    }
+                }
+                GUILayout.Space(20);
             }
 
-            GUILayout.Space(10);
             EditorGUILayout.PropertyField(_playbookAccountAPIKey);
 
             // Render Properties
@@ -48,24 +59,27 @@ namespace PlaybookUnitySDK.Editor
             GUILayout.Space(10);
             GUILayout.Label("Workflow Properties", largeBoldStyle);
 
-            string[] teamsList = ((PlaybookSDK)target).GetTeams();
-            string[] workflowsList = ((PlaybookSDK)target).GetWorkflows();
+            string[] teamsList = playbookSDK.GetTeams();
+            string[] workflowsList = playbookSDK.GetWorkflows();
 
-            PlaybookNetwork.CurrTeamIndex = EditorGUILayout.Popup(
+            playbookSDK.CurrTeamIndex = EditorGUILayout.Popup(
                 "Teams",
-                PlaybookNetwork.CurrTeamIndex,
+                playbookSDK.CurrTeamIndex,
                 teamsList
             );
 
-            PlaybookNetwork.CurrWorkflowIndex = EditorGUILayout.Popup(
+            playbookSDK.CurrWorkflowIndex = EditorGUILayout.Popup(
                 "Workflows",
-                PlaybookNetwork.CurrWorkflowIndex,
+                playbookSDK.CurrWorkflowIndex,
                 workflowsList
             );
 
             // Capture Renders
             GUILayout.Space(10);
-            GUILayout.Label("Capture Renders", largeBoldStyle);
+            GUILayout.Label("Run Workflow", largeBoldStyle);
+
+            EditorGUILayout.PropertyField(_debugLevel);
+            GUILayout.Space(10);
 
             // Disable buttons if not in Play mode
             bool isInPlayMode = EditorApplication.isPlaying;
@@ -86,11 +100,11 @@ namespace PlaybookUnitySDK.Editor
                 GUI.color = Color.white;
             }
 
-            bool flags = isInPlayMode; // && teamsLoaded;
+            bool flags = isInPlayMode && teamsLoaded;
 
             // Don't allow user to capture image while capturing image sequence
             GUI.enabled = flags && !playbookSDK.IsCapturingImageSequence;
-            if (GUILayout.Button("Capture Image"))
+            if (GUILayout.Button("Capture Single Frame"))
             {
                 playbookSDK.InvokeCaptureImage();
 

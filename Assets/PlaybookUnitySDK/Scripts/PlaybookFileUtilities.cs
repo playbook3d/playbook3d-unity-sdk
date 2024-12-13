@@ -20,7 +20,7 @@ namespace PlaybookUnitySDK.Scripts
 
             if (scriptDirectory == null)
             {
-                Debug.LogError($"Could not find directory {scriptPath}");
+                PlaybookLogger.LogError($"Could not find directory {scriptPath}");
                 return "";
             }
 
@@ -34,7 +34,7 @@ namespace PlaybookUnitySDK.Scripts
         {
             if (!Directory.Exists(folderPath))
             {
-                Debug.LogError($"Folder {folderPath} does not exist.");
+                PlaybookLogger.LogError($"Folder {folderPath} does not exist.");
                 return;
             }
 

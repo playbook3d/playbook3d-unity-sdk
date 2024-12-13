@@ -1,6 +1,4 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEngine;
@@ -8,6 +6,10 @@ using UnityEngine.Rendering;
 
 namespace PlaybookUnitySDK.Scripts
 {
+    /// <summary>
+    /// This class is responsible for capturing the individual render passes and
+    /// saving them to their appropriate files.
+    /// </summary>
     [RequireComponent(typeof(PlaybookMaskPass))]
     public class PlaybookCapturePasses : MonoBehaviour
     {
@@ -29,8 +31,6 @@ namespace PlaybookUnitySDK.Scripts
         private const string OutlineShader = "Shader Graphs/OutlinePassShaderGraph";
 
         // Image sequence properties
-        private Coroutine _imageSequenceCoroutine;
-
         private string _rendersFolderPath;
 
         private Camera _renderCamera;
@@ -40,20 +40,12 @@ namespace PlaybookUnitySDK.Scripts
         private RenderPassProperty _depthPassProperties;
         private RenderPassProperty _outlinePassProperties;
 
-        #region Lifecycle Events
+        #region Initialization
 
         private void Awake()
         {
             InitializeProperties();
         }
-
-        private void OnDestroy()
-        {
-            PlaybookFileUtilities.DeleteFolderContents(_rendersFolderPath);
-            PlaybookFileUtilities.DeleteFile($"{_rendersFolderPath}.zip");
-        }
-
-        #endregion
 
         /// <summary>
         /// Initialize the required properties for capturing images and image sequences.
@@ -89,6 +81,16 @@ namespace PlaybookUnitySDK.Scripts
             _beautyPassRenderTexture = new RenderTexture(Screen.width, Screen.height, 32);
             _maskPassRenderTexture = new RenderTexture(Screen.width, Screen.height, 32);
         }
+
+        #endregion
+
+        private void OnDestroy()
+        {
+            PlaybookFileUtilities.DeleteFolderContents(_rendersFolderPath);
+            PlaybookFileUtilities.DeleteFile($"{_rendersFolderPath}.zip");
+        }
+
+        #region Capture Passes
 
         /// <summary>
         /// Capture all render passes.
@@ -184,6 +186,8 @@ namespace PlaybookUnitySDK.Scripts
             Destroy(screenshot);
         }
 
+        #endregion
+
         /// <summary>
         /// Separate the images created by pass and zip them into invidual folders.
         /// </summary>
@@ -191,7 +195,7 @@ namespace PlaybookUnitySDK.Scripts
         {
             if (!Directory.Exists(folderPath))
             {
-                Debug.LogError($"Folder {folderPath} does not exist.");
+                PlaybookLogger.LogError($"Folder {folderPath} does not exist.");
                 return;
             }
 
@@ -223,6 +227,8 @@ namespace PlaybookUnitySDK.Scripts
             }
         }
 
+        #region Run Workflows
+
         public void InvokeCaptureImage()
         {
             // Ensure previous renders are cleared
@@ -230,8 +236,8 @@ namespace PlaybookUnitySDK.Scripts
 
             CaptureRenderPasses();
 
+            // Notify that capture was completed
             ImageCaptureComplete?.Invoke();
-            // TODO: Send images to server
         }
 
         public void StartCaptureImageSequence()
@@ -242,8 +248,6 @@ namespace PlaybookUnitySDK.Scripts
 
             // Ensure previous renders are cleared
             PlaybookFileUtilities.DeleteFolderContents(_rendersFolderPath);
-
-            // _imageSequenceCoroutine = StartCoroutine(CaptureImageSequence_CO());
         }
 
         public void StopCaptureImageSequence()
@@ -253,15 +257,11 @@ namespace PlaybookUnitySDK.Scripts
             // Create zips of the image sequences
             SeparateFolderContentsByCapture(_rendersFolderPath);
 
-            // TODO: Send zip to server
-
-            // if (_imageSequenceCoroutine != null)
-            // {
-            //     StopCoroutine(_imageSequenceCoroutine);
-            // }
-
+            // Notify that capture was completed
             ImageSequenceCaptureComplete?.Invoke();
         }
+
+        #endregion
 
         private struct RenderPassProperty
         {
