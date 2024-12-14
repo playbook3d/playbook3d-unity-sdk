@@ -12,19 +12,16 @@ namespace PlaybookUnitySDK.Runtime
         /// <summary>
         /// Get the folder directory of this package ending with "/Renders".
         /// </summary>
-        public static string GetRendersFolderPath(MonoBehaviour monoBehaviour)
+        public static string GetRendersFolderPath()
         {
-            MonoScript script = MonoScript.FromMonoBehaviour(monoBehaviour);
-            string scriptPath = AssetDatabase.GetAssetPath(script);
-            string scriptDirectory = Path.GetDirectoryName(scriptPath);
+            string scriptPath = Application.persistentDataPath + "/Renders";
 
-            if (scriptDirectory == null)
+            if (!Directory.Exists(scriptPath))
             {
-                PlaybookLogger.LogError($"Could not find directory {scriptPath}");
-                return "";
+                Directory.CreateDirectory(scriptPath);
             }
 
-            return Path.Combine(scriptDirectory, "../Renders");
+            return scriptPath;
         }
 
         /// <summary>

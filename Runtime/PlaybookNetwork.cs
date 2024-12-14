@@ -237,7 +237,7 @@ namespace PlaybookUnitySDK.Runtime
 
         private IEnumerator UploadRenderPassFiles(bool isImage, string extension)
         {
-            string rendersFolderPath = PlaybookFileUtilities.GetRendersFolderPath(this);
+            string rendersFolderPath = PlaybookFileUtilities.GetRendersFolderPath();
 
             foreach (
                 PlaybookCapturePasses.RenderPass renderPass in Enum.GetValues(
@@ -247,7 +247,7 @@ namespace PlaybookUnitySDK.Runtime
             )
             {
                 string fileName = $"{renderPass}Pass.{extension}";
-                string filePath = Path.Combine(rendersFolderPath, fileName);
+                string filePath = $"{rendersFolderPath}/{fileName}";
                 string url = _uploadUrls.GetUrl(renderPass, !isImage);
                 string contentType = isImage ? "image/png" : "application/zip";
 
