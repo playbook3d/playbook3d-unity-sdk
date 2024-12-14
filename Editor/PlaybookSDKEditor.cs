@@ -44,7 +44,7 @@ namespace PlaybookUnitySDK.Editor
                         PlaybookSDK.CopyToClipboard(resultImageUrl);
                     }
 
-                    EditorUtility.SetDirty(playbookSDK);
+                    Repaint();
                 }
                 GUILayout.Space(20);
             }
