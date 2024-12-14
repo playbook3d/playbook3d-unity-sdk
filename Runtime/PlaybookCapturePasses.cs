@@ -180,6 +180,8 @@ namespace PlaybookUnitySDK.Runtime
                 : $"{pass.ToString()}Pass.png";
             string filePath = $"{_rendersFolderPath}/{imageName}";
 
+            await File.WriteAllBytesAsync(filePath, bytes);
+
             PlaybookLogger.Log($"Saving {imageName} to {filePath}", DebugLevel.All, Color.yellow);
 
             RenderTexture.active = null;
