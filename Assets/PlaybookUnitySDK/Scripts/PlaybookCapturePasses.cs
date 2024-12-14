@@ -27,8 +27,8 @@ namespace PlaybookUnitySDK.Scripts
         public event Action ImageCaptureComplete;
         public event Action ImageSequenceCaptureComplete;
 
-        private const string DepthShader = "Shader Graphs/DepthPassShaderGraph";
-        private const string OutlineShader = "Shader Graphs/OutlinePassShaderGraph";
+        private const string DepthShader = "Playbook Shaders/DepthPassShader";
+        private const string OutlineShader = "Playbook Shaders/OutlinePassShader";
 
         // Image sequence properties
         private string _rendersFolderPath;
