@@ -1,0 +1,16 @@
+{
+    "name": "PlaybookSDK",
+    "rootNamespace": "PlaybookSDK",
+    "references": [
+        "GUID:ac740251aebda49e8bf622aa1652e9e3"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
