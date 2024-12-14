@@ -4,6 +4,6 @@
   "displayName": "PlaybookSDK",
   "unity": "2022.3",
   "dependencies": {
-    "com.itisnajim.socketiounity": "1.1.4"
+    "com.itisnajim.socketiounity": "https://github.com/itisnajim/SocketIOUnity.git"
   }
 }
