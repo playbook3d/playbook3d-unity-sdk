@@ -57,7 +57,7 @@ namespace PlaybookUnitySDK.Scripts
 
             InitializeRenderPasses();
 
-            _rendersFolderPath = PlaybookFileUtilities.GetRendersFolderPath(this);
+            _rendersFolderPath = PlaybookFileUtilities.GetRendersFolderPath();
         }
 
         private void InitializeRenderPasses()
@@ -178,7 +178,9 @@ namespace PlaybookUnitySDK.Scripts
             string imageName = IsCapturingImageSequence
                 ? $"{pass.ToString()}Pass_{FrameCount}.png"
                 : $"{pass.ToString()}Pass.png";
-            string filePath = Path.Combine(_rendersFolderPath, imageName);
+            string filePath = $"{_rendersFolderPath}/{imageName}";
+
+            PlaybookLogger.Log($"Saving {imageName} to {filePath}", DebugLevel.All, Color.yellow);
 
             await File.WriteAllBytesAsync(filePath, bytes);
 

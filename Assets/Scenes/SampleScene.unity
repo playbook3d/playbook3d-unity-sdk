@@ -594,6 +594,7 @@ MonoBehaviour:
   playbookAccountAPIKey: 34da58fe-737d-469d-9162-22a54a5ffbed
   framesPerSecond: 24
   maxFrames: 120
+  sdkDebugLevel: 2
 --- !u!114 &330585549
 MonoBehaviour:
   m_ObjectHideFlags: 0

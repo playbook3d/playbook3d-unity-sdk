@@ -102,7 +102,7 @@ namespace PlaybookUnitySDK.Editor
                 GUI.color = Color.white;
             }
 
-            bool flags = isInPlayMode && teamsLoaded;
+            bool flags = isInPlayMode; // && teamsLoaded;
 
             // Don't allow user to capture image while capturing image sequence
             GUI.enabled = flags && !playbookSDK.IsCapturingImageSequence;
