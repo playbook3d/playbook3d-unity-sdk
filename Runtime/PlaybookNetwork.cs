@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SocketIOClient;
 using UnityEngine;
@@ -27,6 +28,8 @@ namespace PlaybookUnitySDK.Runtime
 
         private SocketIOUnity _socket;
 
+        private List<string> _activeRunIds = new();
+
         public int CurrTeamIndex { get; set; }
         public int CurrWorkflowIndex { get; set; }
 
@@ -41,7 +44,6 @@ namespace PlaybookUnitySDK.Runtime
         private const string ApiBaseURL = "";
         private const string TokenEndpoint = "";
         private const string UploadEndpoint = "";
-        private const string DownloadEndpoint = "";
         private const string RunWorkflowEndpoint = "";
         private const string XapiKey = "";
 
@@ -171,7 +173,7 @@ namespace PlaybookUnitySDK.Runtime
                 new()
                 {
                     id = GetCurrentSelectedWorkflow().id,
-                    origin = "1",
+                    origin = "2",
                     inputs = new { },
                 };
             string jsonBody = JsonUtility.ToJson(data);
@@ -191,11 +193,24 @@ namespace PlaybookUnitySDK.Runtime
 
             if (request.result == UnityWebRequest.Result.Success)
             {
-                PlaybookLogger.Log(
-                    "Success response from running workflow.",
-                    DebugLevel.Default,
-                    Color.magenta
-                );
+                JObject requestData = JObject.Parse(request.downloadHandler.text);
+
+                if (requestData["run_id"] == null)
+                {
+                    PlaybookLogger.LogError(
+                        "Received an unexpected response from running the workflow."
+                    );
+                }
+                else
+                {
+                    PlaybookLogger.Log(
+                        "Success response from running the workflow.",
+                        DebugLevel.Default,
+                        Color.magenta
+                    );
+
+                    _activeRunIds.Add(requestData["run_id"].Value<string>());
+                }
             }
             else
             {
@@ -373,24 +388,46 @@ namespace PlaybookUnitySDK.Runtime
         {
             JArray jsonArray = JArray.Parse(response.ToString());
 
+            if (jsonArray[0]["run_id"] == null)
+            {
+                PlaybookLogger.LogError("Received an unexpected response from run_info.");
+                return;
+            }
+
+            // The received workflow was not ran through the Unity SDK. Ignore
+            if (!_activeRunIds.Contains(jsonArray[0]["run_id"].Value<string>()))
+                return;
+
+            if (jsonArray[0]["run_status"]?["type"] == null)
+            {
+                PlaybookLogger.LogError("Received an unexpected response from run_info.");
+                return;
+            }
+
             string runStatus = jsonArray[0]["run_status"]["type"].Value<string>();
 
-            PlaybookLogger.Log(runStatus, DebugLevel.All);
+            PlaybookLogger.Log(runStatus, DebugLevel.All, Color.white);
+
+            if (!string.Equals(runStatus, "executed"))
+                return;
+
+            if (jsonArray[0]["run_status"]["url_image"] == null)
+            {
+                PlaybookLogger.LogError("Received an unexpected response from run_info.");
+                return;
+            }
 
             // Image was successfully rendered
-            if (string.Equals(runStatus, "executed"))
-            {
-                string imageUrl = jsonArray[0]["run_status"]["url_image"].Value<string>();
+            string imageUrl = jsonArray[0]["run_status"]["url_image"].Value<string>();
 
-                PlaybookLogger.Log(
-                    "Got a result! Copy the result image URL from the PlaybookSDK component.",
-                    DebugLevel.Default,
-                    Color.green
-                );
-                PlaybookLogger.Log($"Result image URL: {imageUrl}", DebugLevel.All);
+            PlaybookLogger.Log(
+                "Got a result! Copy the result image URL from the PlaybookSDK component.",
+                DebugLevel.Default,
+                Color.green
+            );
+            PlaybookLogger.Log($"Result image URL: {imageUrl}", DebugLevel.All, Color.green);
 
-                ReceivedUploadUrl?.Invoke(imageUrl);
-            }
+            ReceivedUploadUrl?.Invoke(imageUrl);
         }
 
         #endregion

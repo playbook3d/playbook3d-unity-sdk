@@ -9,7 +9,7 @@ namespace PlaybookUnitySDK.Runtime
     public class PlaybookSDK : MonoBehaviour
     {
         [SerializeField]
-        private string playbookAccountAPIKey;
+        private string playbookAPIKey;
 
         [SerializeField]
         [Range(1, 24)]
@@ -67,7 +67,7 @@ namespace PlaybookUnitySDK.Runtime
             InitializeProperties();
 
             _interval = 1f / framesPerSecond;
-            _playbookNetwork.PlaybookAccountAPIKey = playbookAccountAPIKey;
+            _playbookNetwork.PlaybookAccountAPIKey = playbookAPIKey;
 
             _playbookNetwork.ReceivedUploadUrl += url => ResultImageUrls.Add(url);
 
