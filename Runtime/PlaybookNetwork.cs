@@ -208,6 +208,11 @@ namespace PlaybookUnitySDK.Runtime
                         DebugLevel.Default,
                         Color.magenta
                     );
+                    PlaybookLogger.Log(
+                        "Starting up GPUs...",
+                        DebugLevel.Default,
+                        Color.magenta
+                    );
 
                     _activeRunIds.Add(requestData["run_id"].Value<string>());
                 }
