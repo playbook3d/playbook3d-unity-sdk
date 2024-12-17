@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace PlaybookUnitySDK.Scripts
 {
@@ -9,7 +10,7 @@ namespace PlaybookUnitySDK.Scripts
     public class PlaybookSDK : MonoBehaviour
     {
         [SerializeField]
-        private string playbookAccountAPIKey;
+        private string playbookAPIKey;
 
         [SerializeField]
         [Range(1, 24)]
@@ -67,7 +68,7 @@ namespace PlaybookUnitySDK.Scripts
             InitializeProperties();
 
             _interval = 1f / framesPerSecond;
-            _playbookNetwork.PlaybookAccountAPIKey = playbookAccountAPIKey;
+            _playbookNetwork.PlaybookAccountAPIKey = playbookAPIKey;
 
             _playbookNetwork.ReceivedUploadUrl += url => ResultImageUrls.Add(url);
 

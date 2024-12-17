@@ -14,14 +14,14 @@ namespace PlaybookUnitySDK.Scripts
         /// </summary>
         public static string GetRendersFolderPath()
         {
-            string scriptPath = Application.persistentDataPath + "/Renders";
+            string rendersFolderPath = Application.persistentDataPath + "/Renders";
 
-            if (!Directory.Exists(scriptPath))
+            if (!Directory.Exists(rendersFolderPath))
             {
-                Directory.CreateDirectory(scriptPath);
+                Directory.CreateDirectory(rendersFolderPath);
             }
 
-            return scriptPath;
+            return rendersFolderPath;
         }
 
         /// <summary>

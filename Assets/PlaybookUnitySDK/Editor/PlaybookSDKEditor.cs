@@ -9,17 +9,35 @@ namespace PlaybookUnitySDK.Editor
     [CustomEditor(typeof(PlaybookSDK))]
     public class PlaybookSDKEditor : UnityEditor.Editor
     {
-        private SerializedProperty _playbookAccountAPIKey;
+        private SerializedProperty _playbookAPIKey;
         private SerializedProperty _framesPerSecond;
         private SerializedProperty _maxFrames;
         private SerializedProperty _debugLevel;
 
+        private bool _repaintFlag;
+
         private void OnEnable()
         {
-            _playbookAccountAPIKey = serializedObject.FindProperty("playbookAccountAPIKey");
+            _playbookAPIKey = serializedObject.FindProperty("playbookAPIKey");
             _framesPerSecond = serializedObject.FindProperty("framesPerSecond");
             _maxFrames = serializedObject.FindProperty("maxFrames");
             _debugLevel = serializedObject.FindProperty("sdkDebugLevel");
+
+            EditorApplication.update += OnEditorUpdate;
+        }
+
+        private void OnDisable()
+        {
+            EditorApplication.update -= OnEditorUpdate;
+        }
+
+        private void OnEditorUpdate()
+        {
+            if (_repaintFlag)
+            {
+                Repaint();
+                _repaintFlag = false;
+            }
         }
 
         public override void OnInspectorGUI()
@@ -44,12 +62,12 @@ namespace PlaybookUnitySDK.Editor
                         PlaybookSDK.CopyToClipboard(resultImageUrl);
                     }
 
-                    EditorUtility.SetDirty(playbookSDK);
+                    _repaintFlag = true;
                 }
                 GUILayout.Space(20);
             }
 
-            EditorGUILayout.PropertyField(_playbookAccountAPIKey);
+            EditorGUILayout.PropertyField(_playbookAPIKey);
 
             // Render Properties
             GUILayout.Space(10);
