@@ -95,6 +95,9 @@ namespace PlaybookUnitySDK.Runtime
             foreach (Renderer objectRenderer in _visibleObjectRenderers)
             {
                 _originalMaterials.TryAdd(objectRenderer, objectRenderer.materials);
+
+                // Temporarily clear all materials from the renderer
+                objectRenderer.materials = new Material[0];
             }
         }
 
