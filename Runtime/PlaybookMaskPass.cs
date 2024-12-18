@@ -11,10 +11,6 @@ namespace PlaybookUnitySDK.Runtime
         Mask1,
         Mask2,
         Mask3,
-        Mask4,
-        Mask5,
-        Mask6,
-        Mask7,
         CatchAll,
     }
 
@@ -39,10 +35,10 @@ namespace PlaybookUnitySDK.Runtime
             new(255, 233, 6, 255),
             new(5, 137, 214, 255),
             new(162, 212, 213, 255),
-            new(0, 0, 22, 255),
-            new(0, 173, 88, 255),
-            new(240, 132, 207, 255),
-            new(238, 158, 62, 255),
+            // new(0, 0, 22, 255),
+            // new(0, 173, 88, 255),
+            // new(240, 132, 207, 255),
+            // new(238, 158, 62, 255),
             new(230, 0, 12, 255),
         };
 
