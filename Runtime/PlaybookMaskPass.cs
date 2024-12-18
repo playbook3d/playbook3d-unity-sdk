@@ -95,9 +95,6 @@ namespace PlaybookUnitySDK.Runtime
             foreach (Renderer objectRenderer in _visibleObjectRenderers)
             {
                 _originalMaterials.TryAdd(objectRenderer, objectRenderer.materials);
-
-                // Temporarily clear all materials from the renderer
-                objectRenderer.materials = new Material[0];
             }
         }
 
@@ -145,7 +142,15 @@ namespace PlaybookUnitySDK.Runtime
 
             // Save materials before replacing to reset later
             _originalMaterials.TryAdd(rend, rend.materials);
-            rend.material = _maskMaterials[maskGroup];
+            
+            var newMats = new Material[rend.materials.Length - 1];
+
+            for (int i = 0; i < newMats.Length; i++)
+            {
+                newMats[i] = _maskMaterials[maskGroup];
+            }
+
+            rend.materials = newMats;
         }
 
         #endregion
