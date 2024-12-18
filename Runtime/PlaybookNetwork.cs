@@ -76,7 +76,6 @@ namespace PlaybookUnitySDK.Runtime
                 GetPlaybookUrls(
                     _accessToken,
                     response => {
-                            Debug.Log(response);
                             SetPlaybookApiUrls(response);
                         }
                     )
@@ -162,9 +161,7 @@ namespace PlaybookUnitySDK.Runtime
             }
             else
             {
-                Debug.Log(request.downloadHandler.text);
                 PlaybookUrls response = JsonUtility.FromJson<PlaybookUrls>(request.downloadHandler.text);
-                Debug.Log(response);
                 callback(response);
             }
         }
