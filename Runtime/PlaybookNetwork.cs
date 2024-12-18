@@ -150,7 +150,7 @@ namespace PlaybookUnitySDK.Runtime
         }
 
         private static IEnumerator GetPlaybookUrls(string token, Action<PlaybookUrls> callback){
-            using UnityWebRequest request = UnityWebRequest.Get("https://api.playbook3d.com/get-secrets");
+            using UnityWebRequest request = UnityWebRequest.Get("https://dev-api.playbook3d.com/get-secrets");
             request.SetRequestHeader("Authorization", $"Bearer {token}");
 
             yield return request.SendWebRequest();
