@@ -331,6 +331,10 @@ namespace PlaybookUnitySDK.Runtime
             {
                 PlaybookLogger.LogError(request.error);
             }
+            else 
+            {
+                PlaybookLogger.Log($"Successfully uploaded {filePath}", DebugLevel.All);
+            }
         }
 
         #endregion

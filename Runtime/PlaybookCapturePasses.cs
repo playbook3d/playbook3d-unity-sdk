@@ -29,10 +29,12 @@ namespace PlaybookUnitySDK.Runtime
 
         private const string DepthShader = "Playbook Shaders/DepthPassShader";
         private const string OutlineShader = "Playbook Shaders/OutlinePassShader";
+        private const int RenderWidth = 1024;
 
         // Image sequence properties
         private string _rendersFolderPath;
 
+        private int _renderHeight;
         private Camera _renderCamera;
         private PlaybookMaskPass _maskPass;
         private RenderTexture _beautyPassRenderTexture;
@@ -55,6 +57,8 @@ namespace PlaybookUnitySDK.Runtime
             _renderCamera = GetComponent<Camera>();
             _maskPass = GetComponent<PlaybookMaskPass>();
 
+            _renderHeight = Mathf.RoundToInt(RenderWidth / _renderCamera.aspect);
+
             InitializeRenderPasses();
 
             _rendersFolderPath = PlaybookFileUtilities.GetRendersFolderPath();
@@ -68,18 +72,18 @@ namespace PlaybookUnitySDK.Runtime
             _depthPassProperties = new RenderPassProperty
             {
                 pass = RenderPass.Depth,
-                texture = new RenderTexture(Screen.width, Screen.height, 32),
+                texture = new RenderTexture(RenderWidth, _renderHeight, 32),
                 material = depthMaterial,
             };
             _outlinePassProperties = new RenderPassProperty
             {
                 pass = RenderPass.Outline,
-                texture = new RenderTexture(Screen.width, Screen.height, 32),
+                texture = new RenderTexture(RenderWidth, _renderHeight, 32),
                 material = outlineMaterial,
             };
 
-            _beautyPassRenderTexture = new RenderTexture(Screen.width, Screen.height, 32);
-            _maskPassRenderTexture = new RenderTexture(Screen.width, Screen.height, 32);
+            _beautyPassRenderTexture = new RenderTexture(RenderWidth, _renderHeight, 32);
+            _maskPassRenderTexture = new RenderTexture(RenderWidth, _renderHeight, 32);
         }
 
         #endregion
