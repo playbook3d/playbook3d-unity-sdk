@@ -143,7 +143,7 @@ namespace PlaybookUnitySDK.Runtime
             // Save materials before replacing to reset later
             _originalMaterials.TryAdd(rend, rend.materials);
             
-            var newMats = new Material[rend.materials.Length - 1];
+            var newMats = new Material[rend.materials.Length];
 
             for (int i = 0; i < newMats.Length; i++)
             {
