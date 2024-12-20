@@ -180,7 +180,7 @@ namespace PlaybookUnitySDK.Runtime
 
             byte[] bytes = screenshot.EncodeToPNG();
             string imageName = IsCapturingImageSequence
-                ? $"{pass.ToString()}Pass_{FrameCount}.png"
+                ? $"{pass.ToString()}Pass_{FrameCount:000}.png"
                 : $"{pass.ToString()}Pass.png";
             string filePath = $"{_rendersFolderPath}/{imageName}";
 
