@@ -14,31 +14,15 @@ namespace PlaybookUnitySDK.Editor
         private SerializedProperty _maxFrames;
         private SerializedProperty _debugLevel;
 
-        private bool _repaintFlag;
-
         private void OnEnable()
         {
             _playbookAPIKey = serializedObject.FindProperty("playbookAPIKey");
             _framesPerSecond = serializedObject.FindProperty("framesPerSecond");
             _maxFrames = serializedObject.FindProperty("maxFrames");
             _debugLevel = serializedObject.FindProperty("sdkDebugLevel");
-
-            EditorApplication.update += OnEditorUpdate;
         }
 
-        private void OnDisable()
-        {
-            EditorApplication.update -= OnEditorUpdate;
-        }
-
-        private void OnEditorUpdate()
-        {
-            if (_repaintFlag)
-            {
-                Repaint();
-                _repaintFlag = false;
-            }
-        }
+        public override bool RequiresConstantRepaint() => true;
 
         public override void OnInspectorGUI()
         {
@@ -61,8 +45,6 @@ namespace PlaybookUnitySDK.Editor
                     {
                         PlaybookSDK.CopyToClipboard(resultImageUrl);
                     }
-
-                    _repaintFlag = true;
                 }
                 GUILayout.Space(20);
             }
@@ -106,6 +88,12 @@ namespace PlaybookUnitySDK.Editor
 
             // Disable buttons if teams not loaded
             bool teamsLoaded = teamsList[0] != "None";
+            
+            // Disable if image sequence currently being captured
+            bool capturingImageSequence = playbookSDK.IsCapturingImageSequence;
+            
+            // Disable if files are still being uploaded
+            bool filesBeingUploaded = playbookSDK.IsUploadingImages;
 
             if (!isInPlayMode)
             {
@@ -119,11 +107,21 @@ namespace PlaybookUnitySDK.Editor
                 GUILayout.Label("Credentials have not been loaded in.", EditorStyles.boldLabel);
                 GUI.color = Color.white;
             }
+            else if (filesBeingUploaded && !capturingImageSequence)
+            {
+                GUI.color = Color.red;
+                GUILayout.Label(
+                    "Files are currently being sent to the server.", EditorStyles.boldLabel);
+                GUI.color = Color.white;
+            }
 
-            bool flags = isInPlayMode && teamsLoaded;
+            bool flags = isInPlayMode && 
+                         teamsLoaded && 
+                         !filesBeingUploaded && 
+                         !capturingImageSequence;
 
             // Don't allow user to capture image while capturing image sequence
-            GUI.enabled = flags && !playbookSDK.IsCapturingImageSequence;
+            GUI.enabled = flags;
             if (GUILayout.Button("Capture Single Frame"))
             {
                 playbookSDK.InvokeCaptureImage();
@@ -134,7 +132,7 @@ namespace PlaybookUnitySDK.Editor
             GUILayout.Space(10);
 
             // Enable start capture button if not already capturing
-            GUI.enabled = flags && !playbookSDK.IsCapturingImageSequence;
+            GUI.enabled = flags;
             if (GUILayout.Button("Start Capture Image Sequence"))
             {
                 playbookSDK.StartCaptureImageSequence();
@@ -143,7 +141,7 @@ namespace PlaybookUnitySDK.Editor
             }
 
             // Enable stop capture button if in the process of capturing
-            GUI.enabled = isInPlayMode && playbookSDK.IsCapturingImageSequence;
+            GUI.enabled = isInPlayMode && capturingImageSequence;
             if (GUILayout.Button("Stop Capture Image Sequence"))
             {
                 playbookSDK.StopCaptureImageSequence();

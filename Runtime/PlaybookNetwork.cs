@@ -34,6 +34,8 @@ namespace PlaybookUnitySDK.Runtime
         public int CurrWorkflowIndex { get; set; }
 
         public event Action<string> ReceivedUploadUrl;
+        public event Action FInishedFileUpload;
+
         private string _playbookServerURL;
         private string _accountBaseURL;
         private string _apiBaseURL;
@@ -201,12 +203,14 @@ namespace PlaybookUnitySDK.Runtime
         {
             string url = $"{_apiBaseURL}{RunWorkflowEndpoint}{GetCurrentSelectedWorkflow().team_id}";
 
+            object inputObj = new { };
+
             RunWorkflowProperties data =
                 new()
                 {
                     id = GetCurrentSelectedWorkflow().id,
                     origin = "2",
-                    inputs = new { },
+                    inputs = inputObj,
                 };
             string jsonBody = JsonUtility.ToJson(data);
             byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonBody);
@@ -305,6 +309,8 @@ namespace PlaybookUnitySDK.Runtime
 
                 yield return StartCoroutine(UploadFile(url, filePath, contentType));
             }
+
+            FInishedFileUpload?.Invoke();
 
             StartCoroutine(RunWorkflow(_accessToken));
         }

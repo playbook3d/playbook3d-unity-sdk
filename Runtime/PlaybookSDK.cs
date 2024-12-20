@@ -28,6 +28,7 @@ namespace PlaybookUnitySDK.Runtime
         private DebugLevel sdkDebugLevel = DebugLevel.Default;
 
         public bool IsCapturingImageSequence => _playbookCapturePasses.IsCapturingImageSequence;
+        public bool IsUploadingImages { get; private set; }
         public List<string> ResultImageUrls { get; } = new();
 
         public int CurrTeamIndex
@@ -70,6 +71,7 @@ namespace PlaybookUnitySDK.Runtime
             _playbookNetwork.PlaybookAccountAPIKey = playbookAPIKey;
 
             _playbookNetwork.ReceivedUploadUrl += url => ResultImageUrls.Add(url);
+            _playbookNetwork.FinishedFileUpload += () => IsUploadingImages = false;
 
             _playbookCapturePasses.ImageCaptureComplete += OnImageCaptureComplete;
             _playbookCapturePasses.ImageSequenceCaptureComplete += OnImageSequenceCaptureComplete;
@@ -150,6 +152,8 @@ namespace PlaybookUnitySDK.Runtime
         {
             PlaybookLogger.Log("Rendering a single frame.", DebugLevel.Default, Color.white);
 
+            IsUploadingImages = true;
+
             _playbookCapturePasses.InvokeCaptureImage();
         }
 
@@ -160,6 +164,8 @@ namespace PlaybookUnitySDK.Runtime
                 DebugLevel.Default,
                 Color.white
             );
+
+            IsUploadingImages = true;
 
             _playbookCapturePasses.StartCaptureImageSequence();
         }
