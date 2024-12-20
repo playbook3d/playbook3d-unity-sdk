@@ -34,7 +34,7 @@ namespace PlaybookUnitySDK.Runtime
         public int CurrWorkflowIndex { get; set; }
 
         public event Action<string> ReceivedUploadUrl;
-        public event Action FInishedFileUpload;
+        public event Action FinishedFileUpload;
 
         private string _playbookServerURL;
         private string _accountBaseURL;
@@ -310,7 +310,7 @@ namespace PlaybookUnitySDK.Runtime
                 yield return StartCoroutine(UploadFile(url, filePath, contentType));
             }
 
-            FInishedFileUpload?.Invoke();
+            FinishedFileUpload?.Invoke();
 
             StartCoroutine(RunWorkflow(_accessToken));
         }
