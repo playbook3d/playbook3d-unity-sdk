@@ -29,7 +29,7 @@ namespace PlaybookUnitySDK.Runtime
 
         private const string DepthShader = "Playbook Shaders/DepthPassShader";
         private const string OutlineShader = "Playbook Shaders/OutlinePassShader";
-        private const int RenderWidth = 1024;
+        private const int RenderWidth = 1920;
 
         // Image sequence properties
         private string _rendersFolderPath;
