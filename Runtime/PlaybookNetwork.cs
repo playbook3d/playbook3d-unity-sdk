@@ -203,16 +203,19 @@ namespace PlaybookUnitySDK.Runtime
         {
             string url = $"{_apiBaseURL}{RunWorkflowEndpoint}{GetCurrentSelectedWorkflow().team_id}";
 
-            object inputObj = new { };
+            Dictionary<string, object> inputs = new();
+            
+            OverrideNodeInputs(ref inputs, "4", "Dinosaur in field");
 
             RunWorkflowProperties data =
                 new()
                 {
                     id = GetCurrentSelectedWorkflow().id,
                     origin = "2",
-                    inputs = inputObj,
+                    inputs = inputs,
                 };
-            string jsonBody = JsonUtility.ToJson(data);
+
+            string jsonBody = JsonConvert.SerializeObject(data);
             byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonBody);
 
             using UnityWebRequest request = new(url, "POST");
@@ -257,6 +260,29 @@ namespace PlaybookUnitySDK.Runtime
             {
                 PlaybookLogger.LogError($"Could not run workflow: {request.error}");
             }
+        }
+
+        /// <summary>
+        /// Override the inputs of the node with the given node ID.
+        /// </summary>
+        private void OverrideNodeInputs(
+            ref Dictionary<string, object> inputs,
+            string nodeId,
+            string value,
+            string triggerWords = ""
+        )
+        {
+            Dictionary<string, string> overrideValues = new()
+            {
+                { "default_value", value }
+            };
+
+            if (!string.IsNullOrEmpty(triggerWords))
+            {
+                overrideValues.Add("trigger_words", triggerWords);
+            }
+
+            inputs[nodeId] = overrideValues;
         }
 
         private Workflow GetCurrentSelectedWorkflow()
