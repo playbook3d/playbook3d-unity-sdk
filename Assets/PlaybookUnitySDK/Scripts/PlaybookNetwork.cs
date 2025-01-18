@@ -34,32 +34,40 @@ namespace PlaybookUnitySDK.Scripts
         public int CurrWorkflowIndex { get; set; }
 
         public event Action<string> ReceivedUploadUrl;
+        public event Action FinishedFileUpload;
 
-        private const string TeamsURL = "https://dev-accounts.playbook3d.com/teams";
-        private const string WorkflowsURL = "https://dev-accounts.playbook3d.com/workflows";
-
-        // TODO: Hide these URLs
-        private const string PlaybookServerURL = "";
-        private const string AccountBaseURL = "";
-        private const string ApiBaseURL = "";
-        private const string TokenEndpoint = "";
-        private const string UploadEndpoint = "";
-        private const string RunWorkflowEndpoint = "";
-        private const string XapiKey = "";
+        private string _playbookServerURL;
+        private string _accountBaseURL;
+        private string _apiBaseURL;
+        private string _xApiKey;
+        private const string UploadEndpoint = "/upload-assets/get-upload-urls/";
+        private const string RunWorkflowEndpoint = "/run_workflow/";
+        private const string TeamsURL = "/teams";
+        private const string WorkflowsURL = "/workflows";
 
         #region Initialization
+
+        private void SetPlaybookApiUrls(PlaybookUrls urls)
+        {
+            _xApiKey = urls.X_API_KEY;
+            _apiBaseURL = urls.API_BASE_URL;
+            _accountBaseURL = urls.ACCOUNTS_BASE_URL;
+            _playbookServerURL = urls.WEBSOCKET_BASE_URL;
+        }
 
         private IEnumerator Start()
         {
             yield return StartCoroutine(InitializeNetworkProperties());
 
-            ConnectWebSocket(PlaybookServerURL);
+            ConnectWebSocket(_playbookServerURL);
         }
 
         private IEnumerator InitializeNetworkProperties()
         {
             // Get the user's access token
-            string accessTokenUrl = $"{AccountBaseURL}{TokenEndpoint}{PlaybookAccountAPIKey}";
+            string accessTokenUrl =
+                $"https://accounts.playbook3d.com/token-wrapper/get-tokens/{PlaybookAccountAPIKey}";
+            Debug.Log($"<color=yellow>{accessTokenUrl}</color>");
             yield return StartCoroutine(
                 GetResponseAs<AccessToken>(
                     accessTokenUrl,
@@ -67,27 +75,24 @@ namespace PlaybookUnitySDK.Scripts
                 )
             );
 
+            yield return StartCoroutine(GetPlaybookUrls(_accessToken, SetPlaybookApiUrls));
+
             // Get the user's teams + workflows
             Dictionary<string, string> headers =
-                new() { { "Authorization", $"Bearer {_accessToken}" }, { "X-API-KEY", XapiKey } };
+                new() { { "Authorization", $"Bearer {_accessToken}" }, { "X-API-KEY", _xApiKey } };
+
             yield return StartCoroutine(
-                GetResponseWithWrapper<Team>(TeamsURL, teams => _teams = teams, headers)
-            );
-            yield return StartCoroutine(
-                GetResponseWithWrapper<Workflow>(
-                    WorkflowsURL,
-                    workflows => _workflows = workflows,
+                GetResponseWithWrapper<Team>(
+                    $"{_accountBaseURL}{TeamsURL}",
+                    teams => _teams = teams,
                     headers
                 )
             );
-
-            // Get the user's upload URLs
-            string uploadUrl = $"{AccountBaseURL}{UploadEndpoint}";
             yield return StartCoroutine(
-                GetResponseAs<UploadUrls>(
-                    uploadUrl,
-                    uploadUrls => _uploadUrls = uploadUrls,
-                    new Dictionary<string, string> { { "Authorization", $"Bearer {_accessToken}" } }
+                GetResponseWithWrapper<Workflow>(
+                    $"{_accountBaseURL}{WorkflowsURL}",
+                    workflows => _workflows = workflows,
+                    headers
                 )
             );
         }
@@ -126,11 +131,33 @@ namespace PlaybookUnitySDK.Scripts
 
             if (request.result != UnityWebRequest.Result.Success)
             {
-                PlaybookLogger.LogError($"Could not get response {request.error}");
+                PlaybookLogger.LogError($"Could not get response: {request.error}");
             }
             else
             {
                 callback(JsonUtility.FromJson<T>(request.downloadHandler.text));
+            }
+        }
+
+        private static IEnumerator GetPlaybookUrls(string token, Action<PlaybookUrls> callback)
+        {
+            using UnityWebRequest request = UnityWebRequest.Get(
+                "https://api.playbook3d.com/get-secrets"
+            );
+            request.SetRequestHeader("Authorization", $"Bearer {token}");
+
+            yield return request.SendWebRequest();
+
+            if (request.result != UnityWebRequest.Result.Success)
+            {
+                PlaybookLogger.LogError($"Could not get response: {request.error}");
+            }
+            else
+            {
+                PlaybookUrls response = JsonUtility.FromJson<PlaybookUrls>(
+                    request.downloadHandler.text
+                );
+                callback(response);
             }
         }
 
@@ -152,7 +179,7 @@ namespace PlaybookUnitySDK.Scripts
 
             if (request.result != UnityWebRequest.Result.Success)
             {
-                PlaybookLogger.LogError($"Could not get response {request.error}");
+                PlaybookLogger.LogError($"Could not get response: {request.error}");
             }
             else
             {
@@ -162,12 +189,33 @@ namespace PlaybookUnitySDK.Scripts
 
         #endregion
 
+        private IEnumerator SetUploadUrls()
+        {
+            if (_activeRunIds.Count == 0)
+            {
+                Debug.LogError("There are currently no active workflows running.");
+            }
+
+            string latestRunId = _activeRunIds[^1];
+
+            // Get the user's upload URLs
+            string uploadUrl = $"{_accountBaseURL}{UploadEndpoint}{latestRunId}";
+            yield return StartCoroutine(
+                GetResponseAs<UploadUrls>(
+                    uploadUrl,
+                    uploadUrls => _uploadUrls = uploadUrls,
+                    new Dictionary<string, string> { { "Authorization", $"Bearer {_accessToken}" } }
+                )
+            );
+        }
+
         /// <summary>
         /// Run the currently selected render workflow.
         /// </summary>
         private IEnumerator RunWorkflow(string accessToken)
         {
-            string url = $"{ApiBaseURL}{RunWorkflowEndpoint}{GetCurrentSelectedWorkflow().team_id}";
+            string url =
+                $"{_apiBaseURL}{RunWorkflowEndpoint}{GetCurrentSelectedWorkflow().team_id}";
 
             RunWorkflowProperties data =
                 new()
@@ -187,7 +235,7 @@ namespace PlaybookUnitySDK.Scripts
             // Set request headers
             request.SetRequestHeader("Content-Type", "application/json");
             request.SetRequestHeader("Authorization", $"Bearer {accessToken}");
-            request.SetRequestHeader("X-API-KEY", XapiKey);
+            request.SetRequestHeader("X-API-KEY", _xApiKey);
 
             yield return request.SendWebRequest();
 
@@ -254,6 +302,10 @@ namespace PlaybookUnitySDK.Scripts
         {
             string rendersFolderPath = PlaybookFileUtilities.GetRendersFolderPath();
 
+            yield return RunWorkflow(_accessToken);
+
+            yield return SetUploadUrls();
+
             foreach (
                 PlaybookCapturePasses.RenderPass renderPass in Enum.GetValues(
                         typeof(PlaybookCapturePasses.RenderPass)
@@ -266,10 +318,10 @@ namespace PlaybookUnitySDK.Scripts
                 string url = _uploadUrls.GetUrl(renderPass, !isImage);
                 string contentType = isImage ? "image/png" : "application/zip";
 
-                yield return StartCoroutine(UploadFile(url, filePath, contentType));
+                yield return UploadFile(url, filePath, contentType);
             }
 
-            StartCoroutine(RunWorkflow(_accessToken));
+            FinishedFileUpload?.Invoke();
         }
 
         /// <summary>
@@ -354,7 +406,7 @@ namespace PlaybookUnitySDK.Scripts
                 {
                     Query = new Dictionary<string, string>
                     {
-                        { "token", XapiKey },
+                        { "token", _xApiKey },
                         { "auth_token", _accessToken },
                     },
                     Reconnection = true,
@@ -510,6 +562,15 @@ namespace PlaybookUnitySDK.Scripts
         {
             Wrapper<T> wrapper = JsonUtility.FromJson<Wrapper<T>>(json);
             return wrapper.items;
+        }
+
+        [Serializable]
+        private struct PlaybookUrls
+        {
+            public string ACCOUNTS_BASE_URL;
+            public string API_BASE_URL;
+            public string X_API_KEY;
+            public string WEBSOCKET_BASE_URL;
         }
 
         #endregion
