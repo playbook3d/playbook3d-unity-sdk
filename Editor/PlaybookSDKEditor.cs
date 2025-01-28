@@ -37,15 +37,17 @@ namespace PlaybookUnitySDK.Editor
             if (playbookSDK.ResultImageUrls.Count != 0)
             {
                 GUILayout.Label("Result Image URLs", largeBoldStyle);
-                foreach (string resultImageUrl in playbookSDK.ResultImageUrls)
+                for (int i = 0; i < playbookSDK.ResultImageUrls.Count; i++)
                 {
-                    GUILayout.Label(resultImageUrl);
+                    GUILayout.Label($"Image {i}");
 
                     if (GUILayout.Button("Copy URL"))
                     {
-                        PlaybookSDK.CopyToClipboard(resultImageUrl);
+                        PlaybookSDK.CopyToClipboard(playbookSDK.ResultImageUrls[i]);
                     }
+                    
                 }
+                
                 GUILayout.Space(20);
             }
 

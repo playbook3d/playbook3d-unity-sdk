@@ -22,13 +22,14 @@ namespace PlaybookUnitySDK.Runtime
         public string PlaybookAccountAPIKey { get; set; }
 
         private string _accessToken;
+        private string _currentRunId;
         private Team[] _teams;
         private Workflow[] _workflows;
         private UploadUrls _uploadUrls;
 
-        private SocketIOUnity _socket;
-
         private List<string> _activeRunIds = new();
+
+        private SocketIOUnity _socket;
 
         public int CurrTeamIndex { get; set; }
         public int CurrWorkflowIndex { get; set; }
@@ -67,32 +68,31 @@ namespace PlaybookUnitySDK.Runtime
             // Get the user's access token
             string accessTokenUrl =
                 $"https://accounts.playbook3d.com/token-wrapper/get-tokens/{PlaybookAccountAPIKey}";
-            yield return StartCoroutine(
-                GetResponseAs<AccessToken>(
-                    accessTokenUrl,
-                    accessToken => _accessToken = accessToken.access_token
-                )
+            yield return GetResponseAs<AccessToken>(
+                accessTokenUrl,
+                accessToken => _accessToken = accessToken.access_token
             );
 
-            yield return StartCoroutine(GetPlaybookUrls(_accessToken, SetPlaybookApiUrls));
+            yield return GetPlaybookUrls(_accessToken, SetPlaybookApiUrls);
+            
+            yield return GetResponseAs<RunId>(
+                $"{_apiBaseURL}/get_run_id", 
+                runId => _currentRunId = runId.run_id
+            );
 
             // Get the user's teams + workflows
             Dictionary<string, string> headers =
                 new() { { "Authorization", $"Bearer {_accessToken}" }, { "X-API-KEY", _xApiKey } };
 
-            yield return StartCoroutine(
-                GetResponseWithWrapper<Team>(
-                    $"{_accountBaseURL}{TeamsURL}",
-                    teams => _teams = teams,
-                    headers
-                )
+            yield return GetResponseWithWrapper<Team>(
+                $"{_accountBaseURL}{TeamsURL}",
+                teams => _teams = teams,
+                headers
             );
-            yield return StartCoroutine(
-                GetResponseWithWrapper<Workflow>(
-                    $"{_accountBaseURL}{WorkflowsURL}",
-                    workflows => _workflows = workflows,
-                    headers
-                )
+            yield return GetResponseWithWrapper<Workflow>(
+                $"{_accountBaseURL}{WorkflowsURL}",
+                workflows => _workflows = workflows,
+                headers
             );
         }
 
@@ -190,15 +190,8 @@ namespace PlaybookUnitySDK.Runtime
 
         private IEnumerator SetUploadUrls()
         {
-            if (_activeRunIds.Count == 0)
-            {
-                PlaybookLogger.LogError("There are currently no active workflows running.");
-            }
-
-            string latestRunId = _activeRunIds[^1];
-
             // Get the user's upload URLs
-            string uploadUrl = $"{_accountBaseURL}{UploadEndpoint}{latestRunId}";
+            string uploadUrl = $"{_accountBaseURL}{UploadEndpoint}{_currentRunId}";
             yield return StartCoroutine(
                 GetResponseAs<UploadUrls>(
                     uploadUrl,
@@ -214,7 +207,7 @@ namespace PlaybookUnitySDK.Runtime
         private IEnumerator RunWorkflow(string accessToken)
         {
             string url =
-                $"{_apiBaseURL}{RunWorkflowEndpoint}{GetCurrentSelectedWorkflow().team_id}";
+                $"{_apiBaseURL}{RunWorkflowEndpoint}{GetCurrentSelectedWorkflow().team_id}/{_currentRunId}";
 
             Dictionary<string, object> inputs = new();
 
@@ -333,9 +326,7 @@ namespace PlaybookUnitySDK.Runtime
         private IEnumerator UploadRenderPassFiles(bool isImage, string extension)
         {
             string rendersFolderPath = PlaybookFileUtilities.GetRendersFolderPath();
-
-            yield return RunWorkflow(_accessToken);
-
+            
             yield return SetUploadUrls();
 
             foreach (
@@ -352,6 +343,13 @@ namespace PlaybookUnitySDK.Runtime
 
                 yield return UploadFile(url, filePath, contentType);
             }
+            
+            yield return RunWorkflow(_accessToken);
+            
+            yield return GetResponseAs<RunId>(
+                $"{_apiBaseURL}/get_run_id", 
+                runId => _currentRunId = runId.run_id
+            );
 
             FinishedFileUpload?.Invoke();
         }
@@ -526,6 +524,12 @@ namespace PlaybookUnitySDK.Runtime
         private struct AccessToken
         {
             public string access_token;
+        }
+
+        [Serializable]
+        private struct RunId
+        {
+            public string run_id;
         }
 
         [Serializable]
