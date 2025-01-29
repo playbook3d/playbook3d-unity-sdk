@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 namespace PlaybookUnitySDK.Scripts
 {
@@ -132,12 +133,16 @@ namespace PlaybookUnitySDK.Scripts
         /// </summary>
         private void CaptureMaskPass()
         {
+            _renderCamera.GetUniversalAdditionalCameraData().renderPostProcessing = false;
+
             _maskPass.SaveProperties();
             _maskPass.SetProperties();
 
             CaptureImage(_maskPassRenderTexture, RenderPass.Mask);
 
             _maskPass.ResetProperties();
+
+            _renderCamera.GetUniversalAdditionalCameraData().renderPostProcessing = true;
         }
 
         /// <summary>

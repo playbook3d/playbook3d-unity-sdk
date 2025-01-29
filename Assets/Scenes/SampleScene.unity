@@ -591,7 +591,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 729faed31f4c58347acafef6297dbb6a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  playbookAccountAPIKey: 34da58fe-737d-469d-9162-22a54a5ffbed
+  playbookAPIKey: 'ede59f49-8d74-4197-ad1f-65916c47ce69 '
   framesPerSecond: 24
   maxFrames: 120
   sdkDebugLevel: 2
@@ -631,6 +631,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5b989ab9fdae6db4d9a9e28edbb38dd3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  postProcesses: []
 --- !u!114 &330585553
 MonoBehaviour:
   m_ObjectHideFlags: 0
