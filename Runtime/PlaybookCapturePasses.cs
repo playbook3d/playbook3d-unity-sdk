@@ -3,7 +3,6 @@ using System.IO;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.Rendering.Universal;
 
 namespace PlaybookUnitySDK.Runtime
 {
@@ -154,7 +153,7 @@ namespace PlaybookUnitySDK.Runtime
 
             foreach (Volume volume in postProcessingVolumes) 
             {
-                volume.gameObject.setActive(false);
+                volume.gameObject.setActive(true);
             }
         }
 
