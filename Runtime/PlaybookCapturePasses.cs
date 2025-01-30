@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 namespace PlaybookUnitySDK.Runtime
 {
@@ -13,9 +14,6 @@ namespace PlaybookUnitySDK.Runtime
     [RequireComponent(typeof(PlaybookMaskPass))]
     public class PlaybookCapturePasses : MonoBehaviour
     {
-        [SerializeField] 
-        private Volume[] postProcessingVolumes;
-
         public enum RenderPass
         {
             Beauty,
@@ -139,10 +137,7 @@ namespace PlaybookUnitySDK.Runtime
         /// </summary>
         private void CaptureMaskPass()
         {
-            foreach (Volume volume in postProcessingVolumes) 
-            {
-                volume.gameObject.setActive(false);
-            }
+            _renderCamera.GetUniversalAdditionalCameraData().renderPostProcessing = false;
 
             _maskPass.SaveProperties();
             _maskPass.SetProperties();
@@ -151,10 +146,7 @@ namespace PlaybookUnitySDK.Runtime
 
             _maskPass.ResetProperties();
 
-            foreach (Volume volume in postProcessingVolumes) 
-            {
-                volume.gameObject.setActive(true);
-            }
+            _renderCamera.GetUniversalAdditionalCameraData().renderPostProcessing = true;
         }
 
         /// <summary>
