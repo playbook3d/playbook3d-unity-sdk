@@ -14,6 +14,9 @@ namespace PlaybookUnitySDK.Runtime
     [RequireComponent(typeof(PlaybookMaskPass))]
     public class PlaybookCapturePasses : MonoBehaviour
     {
+        [SerializeField] 
+        private Volume[] postProcessingVolumes;
+
         public enum RenderPass
         {
             Beauty,
@@ -137,7 +140,10 @@ namespace PlaybookUnitySDK.Runtime
         /// </summary>
         private void CaptureMaskPass()
         {
-            _renderCamera.GetUniversalAdditionalCameraData().renderPostProcessing = false;
+            foreach (Volume volume in postProcessingVolumes) 
+            {
+                volume.gameObject.setActive(false);
+            }
 
             _maskPass.SaveProperties();
             _maskPass.SetProperties();
@@ -146,7 +152,10 @@ namespace PlaybookUnitySDK.Runtime
 
             _maskPass.ResetProperties();
 
-            _renderCamera.GetUniversalAdditionalCameraData().renderPostProcessing = true;
+            foreach (Volume volume in postProcessingVolumes) 
+            {
+                volume.gameObject.setActive(false);
+            }
         }
 
         /// <summary>
