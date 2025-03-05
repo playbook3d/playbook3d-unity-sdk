@@ -61,7 +61,7 @@ namespace PlaybookUnitySDK.Editor
 
             // Workflow Properties
             GUILayout.Space(10);
-            GUILayout.Label("Workflow Properties", largeBoldStyle);
+            GUILayout.Label("Workflow Selection", largeBoldStyle);
 
             string[] teamsList = playbookSDK.GetTeams();
             string[] workflowsList = playbookSDK.GetWorkflows();

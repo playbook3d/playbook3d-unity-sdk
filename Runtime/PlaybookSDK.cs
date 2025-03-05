@@ -30,6 +30,9 @@ namespace PlaybookUnitySDK.Runtime
         public bool IsCapturingImageSequence => _playbookCapturePasses.IsCapturingImageSequence;
         public bool IsUploadingImages { get; private set; }
         public List<string> ResultImageUrls { get; } = new();
+        
+        public delegate void ResultEvent(string s);
+        public static event ResultEvent ResultReceived;
 
         public int CurrTeamIndex
         {
@@ -50,7 +53,7 @@ namespace PlaybookUnitySDK.Runtime
         private PlaybookNetwork _playbookNetwork;
         private PlaybookCapturePasses _playbookCapturePasses;
         private PlaybookMaskPass _playbookMaskPass;
-
+        
         private float _interval;
         private float _timePassed;
 
@@ -71,6 +74,7 @@ namespace PlaybookUnitySDK.Runtime
             _playbookNetwork.PlaybookAccountAPIKey = playbookAPIKey;
 
             _playbookNetwork.ReceivedUploadUrl += url => ResultImageUrls.Add(url);
+            _playbookNetwork.ReceivedUploadUrl += url => ResultReceived(url);
             _playbookNetwork.FinishedFileUpload += () => IsUploadingImages = false;
 
             _playbookCapturePasses.ImageCaptureComplete += OnImageCaptureComplete;
@@ -135,6 +139,15 @@ namespace PlaybookUnitySDK.Runtime
             _playbookCapturePasses.ImageCaptureComplete -= OnImageCaptureComplete;
             _playbookCapturePasses.ImageSequenceCaptureComplete -= OnImageSequenceCaptureComplete;
         }
+        
+        #region Override Node Inputs
+
+        public static void OverrideNodeInputs(Dictionary<string, object> inputs)
+        {
+            _instance._playbookNetwork.OverrideNodeInputs(inputs);
+        }
+        
+        #endregion
 
         #region Image Capture
 
@@ -147,13 +160,13 @@ namespace PlaybookUnitySDK.Runtime
         {
             _playbookNetwork.UploadZipFiles();
         }
-
+        
         public void InvokeCaptureImage()
         {
             PlaybookLogger.Log("Rendering a single frame.", DebugLevel.Default, Color.white);
 
             IsUploadingImages = true;
-
+            
             _playbookCapturePasses.InvokeCaptureImage();
         }
 

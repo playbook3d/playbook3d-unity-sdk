@@ -26,6 +26,8 @@ namespace PlaybookUnitySDK.Runtime
         private Team[] _teams;
         private Workflow[] _workflows;
         private UploadUrls _uploadUrls;
+        
+        private Dictionary<string, object> _inputs = new();
 
         private List<string> _activeRunIds = new();
 
@@ -209,16 +211,12 @@ namespace PlaybookUnitySDK.Runtime
             string url =
                 $"{_apiBaseURL}{RunWorkflowEndpoint}{GetCurrentSelectedWorkflow().team_id}/{_currentRunId}";
 
-            Dictionary<string, object> inputs = new();
-
-            // Add any node input overrides here            
-
             RunWorkflowProperties data =
                 new()
                 {
                     id = GetCurrentSelectedWorkflow().id,
                     origin = "2",
-                    inputs = inputs,
+                    inputs = _inputs,
                 };
             
             string jsonBody = JsonConvert.SerializeObject(data);
@@ -267,11 +265,22 @@ namespace PlaybookUnitySDK.Runtime
                 PlaybookLogger.LogError($"Could not run workflow: {request.error}");
             }
         }
+        
+        /// <summary>
+        /// Override node inputs
+        /// </summary>
+        public void OverrideNodeInputs(Dictionary<string, object> inputs)
+        {
+            foreach(KeyValuePair<string, object> i in inputs)
+            {
+                OverrideNode(ref _inputs, i.Key, i.Value.ToString());
+            }
+        }
 
         /// <summary>
         /// Override the inputs of the node with the given node ID.
         /// </summary>
-        private void OverrideNodeInputs(
+        private void OverrideNode(
             ref Dictionary<string, object> inputs,
             string nodeId,
             string value,
